@@ -23,6 +23,9 @@ serviceAccountKey*.json
 *credentials*.json
 firebase_config.json
 gcp_credentials.json
+*-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
+kisaansaathi-28cec-firebase-adminsdk-*.json
 
 # IDE / System
 .vscode/

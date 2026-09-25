@@ -1,0 +1,7 @@
+{
+  "Tomato": { "shrinkage_rate_percent_per_100km": [1.2, 1.8] },
+  "Onion": { "shrinkage_rate_percent_per_100km": [0.2, 0.4] },
+  "Potato": { "shrinkage_rate_percent_per_100km": [0.3, 0.5] },
+  "Brinjal": { "shrinkage_rate_percent_per_100km": [1.0, 1.5] },
+  "Cabbage": { "shrinkage_rate_percent_per_100km": [0.8, 1.2] }
+}

@@ -1,0 +1,7 @@
+{
+  "Hubballi-Belagavi": { "distance_km": 98.0, "duration_hr": 2.1 },
+  "Hubballi-Dharwad": { "distance_km": 22.0, "duration_hr": 0.5 },
+  "Belagavi-Dharwad": { "distance_km": 76.0, "duration_hr": 1.6 },
+  "Hubballi-Gadag": { "distance_km": 55.0, "duration_hr": 1.1 },
+  "Hubballi-Haveri": { "distance_km": 72.0, "duration_hr": 1.4 }
+}

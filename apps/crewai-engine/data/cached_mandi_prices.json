@@ -1,0 +1,16 @@
+{
+  "Tomato": {
+    "Hubballi": { "modal_price": 2100, "last_updated": "2026-09-20" },
+    "Belagavi": { "modal_price": 1950, "last_updated": "2026-09-20" },
+    "Dharwad": { "modal_price": 2050, "last_updated": "2026-09-20" }
+  },
+  "Onion": {
+    "Hubballi": { "modal_price": 1800, "last_updated": "2026-09-20" },
+    "Belagavi": { "modal_price": 1750, "last_updated": "2026-09-20" },
+    "Dharwad": { "modal_price": 1850, "last_updated": "2026-09-20" }
+  },
+  "Potato": {
+    "Hubballi": { "modal_price": 1400, "last_updated": "2026-09-20" },
+    "Belagavi": { "modal_price": 1350, "last_updated": "2026-09-20" }
+  }
+}
