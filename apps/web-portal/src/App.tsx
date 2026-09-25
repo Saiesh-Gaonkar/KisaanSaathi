@@ -94,10 +94,10 @@ export const AppContent: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
             <span className="font-bold text-slate-800">KisaanSathi Web Portal</span>
-            <span>• Phase 1 Tripartite Foundation</span>
+            <span>• Phase 2 — Multi-Agent AI Simulation Engine</span>
           </div>
           <div className="text-slate-400">
-            Powered by Google Cloud & Firebase • Built for Indian Agriculture
+            Powered by CrewAI × Gemini × Google Cloud &amp; Firebase • Built for Indian Agriculture
           </div>
         </div>
       </footer>

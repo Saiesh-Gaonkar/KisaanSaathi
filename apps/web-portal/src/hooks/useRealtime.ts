@@ -30,6 +30,11 @@ export const useBatches = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadLocal = () => {
+      setBatches(getLocal<InventoryBatch>('inventory_batches'));
+      setLoading(false);
+    };
+
     if (isLiveFirebaseConfigured && db) {
       const q = query(collection(db, 'inventory_batches'), orderBy('created_at', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -37,18 +42,19 @@ export const useBatches = () => {
         setBatches(list);
         setLoading(false);
       }, (err) => {
-        console.error('Batches onSnapshot error:', err);
-        setLoading(false);
+        console.warn('Batches onSnapshot error (using local demo data):', err.message);
+        loadLocal();
       });
-      return () => unsubscribe();
-    } else {
-      const load = () => {
-        setBatches(getLocal<InventoryBatch>('inventory_batches'));
-        setLoading(false);
+
+      window.addEventListener('kisaansaathi_update_inventory_batches', loadLocal);
+      return () => {
+        unsubscribe();
+        window.removeEventListener('kisaansaathi_update_inventory_batches', loadLocal);
       };
-      load();
-      window.addEventListener('kisaansaathi_update_inventory_batches', load);
-      return () => window.removeEventListener('kisaansaathi_update_inventory_batches', load);
+    } else {
+      loadLocal();
+      window.addEventListener('kisaansaathi_update_inventory_batches', loadLocal);
+      return () => window.removeEventListener('kisaansaathi_update_inventory_batches', loadLocal);
     }
   }, []);
 
@@ -60,6 +66,12 @@ export const useBids = (batchId?: string) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadLocal = () => {
+      const all = getLocal<BuyerBid>('buyer_bids');
+      setBids(batchId ? all.filter(b => b.batch_id === batchId) : all);
+      setLoading(false);
+    };
+
     if (isLiveFirebaseConfigured && db) {
       let q = query(collection(db, 'buyer_bids'), orderBy('created_at', 'desc'));
       if (batchId) {
@@ -70,19 +82,19 @@ export const useBids = (batchId?: string) => {
         setBids(list);
         setLoading(false);
       }, (err) => {
-        console.error('Bids onSnapshot error:', err);
-        setLoading(false);
+        console.warn('Bids onSnapshot error (using local demo data):', err.message);
+        loadLocal();
       });
-      return () => unsubscribe();
-    } else {
-      const load = () => {
-        const all = getLocal<BuyerBid>('buyer_bids');
-        setBids(batchId ? all.filter(b => b.batch_id === batchId) : all);
-        setLoading(false);
+
+      window.addEventListener('kisaansaathi_update_buyer_bids', loadLocal);
+      return () => {
+        unsubscribe();
+        window.removeEventListener('kisaansaathi_update_buyer_bids', loadLocal);
       };
-      load();
-      window.addEventListener('kisaansaathi_update_buyer_bids', load);
-      return () => window.removeEventListener('kisaansaathi_update_buyer_bids', load);
+    } else {
+      loadLocal();
+      window.addEventListener('kisaansaathi_update_buyer_bids', loadLocal);
+      return () => window.removeEventListener('kisaansaathi_update_buyer_bids', loadLocal);
     }
   }, [batchId]);
 
@@ -94,6 +106,11 @@ export const useRoutes = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadLocal = () => {
+      setRoutes(getLocal<TransporterRoute>('transporter_routes'));
+      setLoading(false);
+    };
+
     if (isLiveFirebaseConfigured && db) {
       const q = query(collection(db, 'transporter_routes'), orderBy('created_at', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -101,18 +118,19 @@ export const useRoutes = () => {
         setRoutes(list);
         setLoading(false);
       }, (err) => {
-        console.error('Routes onSnapshot error:', err);
-        setLoading(false);
+        console.warn('Routes onSnapshot error (using local demo data):', err.message);
+        loadLocal();
       });
-      return () => unsubscribe();
-    } else {
-      const load = () => {
-        setRoutes(getLocal<TransporterRoute>('transporter_routes'));
-        setLoading(false);
+
+      window.addEventListener('kisaansaathi_update_transporter_routes', loadLocal);
+      return () => {
+        unsubscribe();
+        window.removeEventListener('kisaansaathi_update_transporter_routes', loadLocal);
       };
-      load();
-      window.addEventListener('kisaansaathi_update_transporter_routes', load);
-      return () => window.removeEventListener('kisaansaathi_update_transporter_routes', load);
+    } else {
+      loadLocal();
+      window.addEventListener('kisaansaathi_update_transporter_routes', loadLocal);
+      return () => window.removeEventListener('kisaansaathi_update_transporter_routes', loadLocal);
     }
   }, []);
 
@@ -124,6 +142,11 @@ export const useDeals = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadLocal = () => {
+      setDeals(getLocal<DealAndReview>('deals_and_reviews'));
+      setLoading(false);
+    };
+
     if (isLiveFirebaseConfigured && db) {
       const q = query(collection(db, 'deals_and_reviews'), orderBy('created_at', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -131,18 +154,19 @@ export const useDeals = () => {
         setDeals(list);
         setLoading(false);
       }, (err) => {
-        console.error('Deals onSnapshot error:', err);
-        setLoading(false);
+        console.warn('Deals onSnapshot error (using local demo data):', err.message);
+        loadLocal();
       });
-      return () => unsubscribe();
-    } else {
-      const load = () => {
-        setDeals(getLocal<DealAndReview>('deals_and_reviews'));
-        setLoading(false);
+
+      window.addEventListener('kisaansaathi_update_deals_and_reviews', loadLocal);
+      return () => {
+        unsubscribe();
+        window.removeEventListener('kisaansaathi_update_deals_and_reviews', loadLocal);
       };
-      load();
-      window.addEventListener('kisaansaathi_update_deals_and_reviews', load);
-      return () => window.removeEventListener('kisaansaathi_update_deals_and_reviews', load);
+    } else {
+      loadLocal();
+      window.addEventListener('kisaansaathi_update_deals_and_reviews', loadLocal);
+      return () => window.removeEventListener('kisaansaathi_update_deals_and_reviews', loadLocal);
     }
   }, []);
 

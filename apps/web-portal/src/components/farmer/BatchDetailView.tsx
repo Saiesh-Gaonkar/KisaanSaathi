@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useBatches, useBids, useRoutes } from '../../hooks/useRealtime';
 import { 
   acceptDeal, 
   publishBatchToMarketplace, 
-  formatINR 
+  formatINR,
+  isLiveFirebaseConfigured,
+  auth
 } from '../../services/firebase';
+import { runSimulation, checkEngineHealth } from '../../services/aiSimulation';
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -18,12 +21,27 @@ import {
   Send,
   ChevronRight,
   Info,
-  MapPin
+  MapPin,
+  Zap,
+  Loader2,
+  Brain,
+  ShieldCheck,
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
+
+// Simulation progress stages for the animated loading sequence
+const SIMULATION_STAGES = [
+  { label: 'Connecting to CrewAI Engine', icon: Zap, duration: 2000 },
+  { label: 'Agent 1: Market Intelligence Analyst scanning mandis & bids...', icon: TrendingUp, duration: 8000 },
+  { label: 'Agent 2: Logistics & Risk Analyst computing routes & shrinkage...', icon: Truck, duration: 8000 },
+  { label: 'Agent 3: Lead Economic Strategist ranking optimal channels...', icon: Brain, duration: 8000 },
+  { label: 'Finalizing AI recommendations...', icon: ShieldCheck, duration: 3000 },
+];
 
 export const BatchDetailView: React.FC = () => {
   const { batchId } = useParams<{ batchId: string }>();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   
   const { batches } = useBatches();
   const { bids } = useBids(batchId);
@@ -33,6 +51,13 @@ export const BatchDetailView: React.FC = () => {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+
+  // AI Simulation states
+  const [simulationRunning, setSimulationRunning] = useState(false);
+  const [simulationStage, setSimulationStage] = useState(0);
+  const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [simulationSuccess, setSimulationSuccess] = useState(false);
+  const [engineOnline, setEngineOnline] = useState<boolean | null>(null);
 
   const batch = batches.find(b => b.batch_id === batchId);
 
@@ -44,9 +69,63 @@ export const BatchDetailView: React.FC = () => {
   const selectedBid = bids.find(b => b.bid_id === selectedBidId);
   const selectedRoute = routes.find(r => r.route_id === selectedRouteId);
 
+  // Check engine health on mount when batch is PENDING_SIMULATION
+  useEffect(() => {
+    if (batch?.status === 'PENDING_SIMULATION') {
+      checkEngineHealth().then(setEngineOnline);
+    }
+  }, [batch?.status]);
+
+  // Animate through simulation stages
+  useEffect(() => {
+    if (!simulationRunning) return;
+    if (simulationStage >= SIMULATION_STAGES.length) return;
+
+    const timer = setTimeout(() => {
+      setSimulationStage(prev => Math.min(prev + 1, SIMULATION_STAGES.length - 1));
+    }, SIMULATION_STAGES[simulationStage].duration);
+
+    return () => clearTimeout(timer);
+  }, [simulationRunning, simulationStage]);
+
   const handlePublish = async () => {
     if (batchId) {
       await publishBatchToMarketplace(batchId);
+    }
+  };
+
+  const handleRunSimulation = async () => {
+    if (!batchId || !user) return;
+    
+    setSimulationRunning(true);
+    setSimulationStage(0);
+    setSimulationError(null);
+    setSimulationSuccess(false);
+
+    try {
+      // Get Firebase ID token (live mode) or use demo token
+      let idToken = 'demo-token';
+      if (isLiveFirebaseConfigured && auth?.currentUser) {
+        idToken = await auth.currentUser.getIdToken();
+      }
+
+      const result = await runSimulation(batchId, idToken);
+      
+      // Show the final stage briefly
+      setSimulationStage(SIMULATION_STAGES.length - 1);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setSimulationSuccess(true);
+      setSimulationRunning(false);
+
+      // The batch data will auto-refresh via Firestore onSnapshot
+      console.log('Simulation completed:', result);
+    } catch (err: any) {
+      console.error('Simulation failed:', err);
+      setSimulationError(
+        err.detail || err.message || 'Simulation failed. Please ensure the CrewAI engine is running.'
+      );
+      setSimulationRunning(false);
     }
   };
 
@@ -98,13 +177,28 @@ export const BatchDetailView: React.FC = () => {
         </div>
 
         {batch.status === 'PENDING_SIMULATION' && (
-          <button
-            onClick={handlePublish}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center space-x-2"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Publish to Marketplace (Skip AI Simulation)</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRunSimulation}
+              disabled={simulationRunning || engineOnline === false}
+              className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-lg shadow-violet-200 transition-all flex items-center space-x-2"
+            >
+              {simulationRunning ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              <span>{simulationRunning ? 'Running AI Simulation...' : 'Run AI Multi-Agent Simulation'}</span>
+            </button>
+            <button
+              onClick={handlePublish}
+              disabled={simulationRunning}
+              className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-2"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Skip AI (Publish Directly)</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -138,6 +232,124 @@ export const BatchDetailView: React.FC = () => {
         </div>
       </div>
 
+      {/* AI SIMULATION PROGRESS PANEL — Visible only while simulation runs */}
+      {simulationRunning && (
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-violet-950 to-slate-900 rounded-2xl border border-violet-700/30 shadow-xl p-8 space-y-6">
+          {/* Animated background effect */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-1/4 w-64 h-64 bg-violet-500 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-indigo-500 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          </div>
+
+          <div className="relative z-10 flex items-center space-x-3">
+            <div className="p-2 rounded-xl bg-violet-500/20 backdrop-blur">
+              <Brain className="w-6 h-6 text-violet-300 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-lg font-extrabold text-white">CrewAI Multi-Agent Simulation in Progress</h3>
+              <p className="text-xs text-violet-300/80">Sequential 3-agent pipeline processing your batch...</p>
+            </div>
+          </div>
+
+          <div className="relative z-10 space-y-3">
+            {SIMULATION_STAGES.map((stage, idx) => {
+              const StageIcon = stage.icon;
+              const isActive = idx === simulationStage;
+              const isComplete = idx < simulationStage;
+              const isPending = idx > simulationStage;
+
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-500 ${
+                    isActive
+                      ? 'bg-violet-500/20 border border-violet-500/30'
+                      : isComplete
+                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      : 'bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg ${
+                    isActive ? 'bg-violet-500/30' : isComplete ? 'bg-emerald-500/30' : 'bg-white/10'
+                  }`}>
+                    {isComplete ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : isActive ? (
+                      <Loader2 className="w-4 h-4 text-violet-300 animate-spin" />
+                    ) : (
+                      <StageIcon className="w-4 h-4 text-slate-500" />
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${
+                    isActive ? 'text-violet-200' : isComplete ? 'text-emerald-300' : 'text-slate-500'
+                  }`}>
+                    {stage.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progress bar */}
+          <div className="relative z-10">
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-violet-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${((simulationStage + 1) / SIMULATION_STAGES.length) * 100}%` }}
+              />
+            </div>
+            <p className="text-xs text-violet-400/60 mt-2 text-center">
+              This typically takes 30–60 seconds as three AI agents deliberate sequentially
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* SIMULATION ERROR */}
+      {simulationError && (
+        <div className="p-5 rounded-2xl bg-red-50 border border-red-200 text-red-900 space-y-2 animate-fade-in">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <h3 className="text-sm font-bold">Simulation Failed</h3>
+          </div>
+          <p className="text-xs text-red-800">{simulationError}</p>
+          <button
+            onClick={() => setSimulationError(null)}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* SIMULATION SUCCESS TOAST */}
+      {simulationSuccess && !simulationRunning && batch.status === 'LISTED_ACTIVE' && (
+        <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2 animate-fade-in">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <h3 className="text-sm font-bold">AI Simulation Completed Successfully!</h3>
+          </div>
+          <p className="text-xs text-emerald-800">
+            The 3-agent CrewAI pipeline has analyzed your batch and generated ranked recommendations below.
+            Batch status has advanced to <span className="font-bold">LISTED_ACTIVE</span>.
+          </p>
+        </div>
+      )}
+
+      {/* Engine offline warning */}
+      {batch.status === 'PENDING_SIMULATION' && engineOnline === false && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start space-x-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <div className="font-bold">CrewAI Engine Offline</div>
+            <p>
+              The simulation backend at <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">localhost:8000</code> is not reachable.
+              Start it with <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">uvicorn app.main:app --reload</code> in the <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">crewai-engine</code> directory.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* SECTION 1: AI RECOMMENDATIONS (Rendered if present, empty state if null) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -161,57 +373,86 @@ export const BatchDetailView: React.FC = () => {
                     : 'border-slate-200 bg-slate-50/50'
                 }`}
               >
+                {/* Rank & Channel Header */}
                 <div className="flex items-center justify-between">
                   <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
                     idx === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
                   }`}>
                     Rank #{rec.rank || idx + 1}
                   </span>
-                  <span className="text-xs font-bold text-slate-800">{rec.channel}</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      rec.channel_type === 'DIRECT_BUYER'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {rec.channel_type === 'DIRECT_BUYER' ? 'Direct Buyer' : 'APMC Mandi'}
+                    </span>
+                  </div>
                 </div>
 
+                {/* Channel Name */}
+                <div className="mt-2">
+                  <span className="text-xs font-bold text-slate-800">{rec.channel_name}</span>
+                  {rec.delivery_term && (
+                    <span className={`ml-2 text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                      rec.delivery_term === 'EX_FARM'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {rec.delivery_term === 'EX_FARM' ? 'Ex-Farm' : 'FOR Mandi'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Net Realization */}
                 <div className="mt-3">
-                  <span className="text-xs text-slate-500 font-medium">Estimated Net Realization:</span>
+                  <span className="text-xs text-slate-500 font-medium">Net Realization (Total):</span>
                   <div className="text-2xl font-black text-emerald-800 tracking-tight">
                     {formatINR(rec.net_realization)}
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-slate-200/60 space-y-1 text-[11px] text-slate-600">
+                {/* Financial Breakdown */}
+                <div className="mt-3 pt-3 border-t border-slate-200/60 space-y-1.5 text-[11px] text-slate-600">
                   <div className="flex justify-between">
-                    <span>Gross Bid:</span>
-                    <span className="font-semibold">{formatINR(rec.gross_price_per_qtl)}/qtl</span>
+                    <span>Gross Revenue:</span>
+                    <span className="font-semibold text-emerald-700">{formatINR(rec.gross_revenue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Logistics Deduction:</span>
-                    <span className="text-red-600">-{formatINR(rec.estimated_freight)}</span>
+                    <span>Logistics Cost:</span>
+                    <span className="text-red-600 font-medium">−{formatINR(rec.c_logistics)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Mandi Cess & Labor:</span>
-                    <span className="text-red-600">-{formatINR(rec.estimated_mandi_fee)}</span>
+                    <span>Mandi Cess & Fees:</span>
+                    <span className="text-red-600 font-medium">−{formatINR(rec.c_mandi)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Transit Decay & Shrinkage:</span>
-                    <span className="text-red-600">-{formatINR(rec.estimated_shrinkage)}</span>
+                    <span>Transit Shrinkage:</span>
+                    <span className="text-red-600 font-medium">−{formatINR(rec.c_shrinkage)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Trust Risk Penalty:</span>
-                    <span className="text-amber-700">-{formatINR(rec.trust_risk_penalty)}</span>
+                    <span className="text-amber-700 font-medium">−{formatINR(rec.p_trust)}</span>
                   </div>
                 </div>
 
+                {/* AI Rationale */}
                 <div className="mt-3 pt-2 text-[11px] italic text-slate-500 border-t border-slate-100">
+                  <span className="font-semibold not-italic text-slate-600">AI Rationale: </span>
                   "{rec.economic_rationale}"
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2">
+          <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
             <Info className="w-8 h-8 text-slate-400 mx-auto" />
             <div className="text-xs font-bold text-slate-700">No Automated AI Recommendation Yet</div>
             <p className="text-xs text-slate-500 max-w-lg mx-auto">
-              In Phase 1, multi-agent reasoning is isolated. You can make an immediate manual decision below by pairing an open buyer bid with an available transporter!
+              {batch.status === 'PENDING_SIMULATION'
+                ? 'Click "Run AI Multi-Agent Simulation" above to trigger the 3-agent CrewAI pipeline. It will analyze market prices, logistics costs, and rank optimal sales channels for you.'
+                : 'You can make a manual decision below by pairing an open buyer bid with an available transporter!'}
             </p>
           </div>
         )}
@@ -265,7 +506,7 @@ export const BatchDetailView: React.FC = () => {
                 No open bids submitted on this batch yet.
                 {batch.status === 'PENDING_SIMULATION' && (
                   <div className="mt-2 text-amber-700 font-medium">
-                    (Click "Publish to Marketplace" above so wholesalers can view and bid!)
+                    (Run AI Simulation or Publish to Marketplace so wholesalers can view and bid!)
                   </div>
                 )}
               </div>

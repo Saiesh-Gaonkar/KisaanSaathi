@@ -19,10 +19,12 @@ interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<any>;
   loginWithEmail: (email: string, password: string) => Promise<any>;
   loginWithGoogle: () => Promise<void>;
+  enterDemoMode: (role?: UserRole) => void;
   switchPersona: (role: UserRole) => void;
   logout: () => Promise<void>;
   reloadProfile: () => Promise<void>;
   isDemoMode: boolean;
+  isDemoActive: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +33,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const isDemoMode = !isLiveFirebaseConfigured;
+  const [isDemoActive, setIsDemoActive] = useState<boolean>(() => {
+    return localStorage.getItem('kisaansaathi_is_demo') === 'true';
+  });
+  const isDemoMode = !isLiveFirebaseConfigured || isDemoActive;
 
   const reloadProfile = async () => {
     if (user?.uid) {
@@ -43,16 +48,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (isLiveFirebaseConfigured && auth) {
       const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-        setUser(fbUser);
         if (fbUser) {
+          setIsDemoActive(false);
+          localStorage.removeItem('kisaansaathi_is_demo');
+          setUser(fbUser);
           const p = await getUserProfile(fbUser.uid);
           setProfile(p);
         } else {
-          setProfile(null);
+          // If no Firebase Auth user, check if user activated demo mode
+          const wasDemo = localStorage.getItem('kisaansaathi_is_demo') === 'true';
+          if (wasDemo) {
+            const rawAuth = localStorage.getItem('kisaansaathi_demo_auth');
+            if (rawAuth) {
+              const u = JSON.parse(rawAuth);
+              setUser(u);
+              const p = await getUserProfile(u.uid);
+              setProfile(p);
+              setIsDemoActive(true);
+            } else {
+              const defaultProfile = switchDemoUser('farmer');
+              setUser({
+                uid: defaultProfile.uid,
+                displayName: defaultProfile.name,
+                email: defaultProfile.email,
+              });
+              setProfile(defaultProfile);
+              setIsDemoActive(true);
+            }
+          } else {
+            setUser(null);
+            setProfile(null);
+            setIsDemoActive(false);
+          }
         }
         setLoading(false);
       });
-      return () => unsubscribe();
+
+      const syncDemoAuth = async () => {
+        if (localStorage.getItem('kisaansaathi_is_demo') === 'true') {
+          const rawAuth = localStorage.getItem('kisaansaathi_demo_auth');
+          if (rawAuth) {
+            const u = JSON.parse(rawAuth);
+            setUser(u);
+            const p = await getUserProfile(u.uid);
+            setProfile(p);
+            setIsDemoActive(true);
+          }
+        }
+      };
+
+      window.addEventListener('kisaansaathi_auth_change', syncDemoAuth);
+      return () => {
+        unsubscribe();
+        window.removeEventListener('kisaansaathi_auth_change', syncDemoAuth);
+      };
     } else {
       // Demo authentication mode handler
       const syncDemoAuth = async () => {
@@ -63,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(u);
             const p = await getUserProfile(u.uid);
             setProfile(p);
+            setIsDemoActive(true);
           } else {
             // Default to demo farmer on first arrival for immediate UX
             const defaultProfile = switchDemoUser('farmer');
@@ -72,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: defaultProfile.email,
             });
             setProfile(defaultProfile);
+            setIsDemoActive(true);
           }
         } finally {
           setLoading(false);
@@ -89,6 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const loggedUser = await signUpWithEmail(email, password, name);
       setUser(loggedUser);
+      setIsDemoActive(false);
+      localStorage.removeItem('kisaansaathi_is_demo');
       if (loggedUser?.uid) {
         const p = await getUserProfile(loggedUser.uid);
         setProfile(p);
@@ -104,6 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const loggedUser = await signInWithEmail(email, password);
       setUser(loggedUser);
+      setIsDemoActive(false);
+      localStorage.removeItem('kisaansaathi_is_demo');
       if (loggedUser?.uid) {
         const p = await getUserProfile(loggedUser.uid);
         setProfile(p);
@@ -119,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const loggedUser = await signInWithGoogle();
       setUser(loggedUser);
+      setIsDemoActive(false);
+      localStorage.removeItem('kisaansaathi_is_demo');
       if (loggedUser?.uid) {
         const p = await getUserProfile(loggedUser.uid);
         setProfile(p);
@@ -126,6 +183,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
+  };
+
+  const enterDemoMode = (role: UserRole = 'farmer') => {
+    const p = switchDemoUser(role);
+    setUser({
+      uid: p.uid,
+      displayName: p.name,
+      email: p.email,
+    });
+    setProfile(p);
+    localStorage.setItem('kisaansaathi_is_demo', 'true');
+    setIsDemoActive(true);
   };
 
   const switchPersona = (role: UserRole) => {
@@ -136,10 +205,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: p.email,
     });
     setProfile(p);
+    localStorage.setItem('kisaansaathi_is_demo', 'true');
+    setIsDemoActive(true);
   };
 
   const logout = async () => {
     await fbLogOut();
+    localStorage.removeItem('kisaansaathi_is_demo');
+    setIsDemoActive(false);
     setUser(null);
     setProfile(null);
   };
@@ -153,10 +226,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         loginWithEmail,
         loginWithGoogle,
+        enterDemoMode,
         switchPersona,
         logout,
         reloadProfile,
         isDemoMode,
+        isDemoActive,
       }}
     >
       {children}

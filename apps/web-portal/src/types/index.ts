@@ -29,15 +29,17 @@ export type BatchStatus =
 
 export interface AIRecommendation {
   rank: number;
-  channel: string;
-  recommended_buyer_name?: string;
-  recommended_transporter?: string;
+  channel_type: 'APMC_MANDI' | 'DIRECT_BUYER';
+  channel_name: string;
+  buyer_id?: string;
+  transporter_id?: string;
+  delivery_term: 'EX_FARM' | 'FOR_MANDI';
+  gross_revenue: number;
+  c_logistics: number;
+  c_mandi: number;
+  c_shrinkage: number;
+  p_trust: number;
   net_realization: number;
-  gross_price_per_qtl: number;
-  estimated_freight: number;
-  estimated_mandi_fee: number;
-  estimated_shrinkage: number;
-  trust_risk_penalty: number;
   economic_rationale: string;
 }
 
