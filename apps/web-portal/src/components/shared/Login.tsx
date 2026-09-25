@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import type { UserRole } from '../../types';
 import { 
   Sprout, 
-  Store, 
-  Truck, 
-  ArrowRight,
   ShieldCheck,
   Mail,
   Lock,
@@ -17,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { loginWithGoogle, signUp, loginWithEmail, switchPersona } = useAuth();
+  const { loginWithGoogle, signUp, loginWithEmail } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
@@ -105,10 +101,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleDemoLogin = (role: UserRole) => {
-    switchPersona(role);
-    navigate(`/${role}`);
-  };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-br from-emerald-50 via-slate-50 to-green-50">
@@ -303,75 +295,6 @@ export const Login: React.FC = () => {
             </svg>
             <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
           </button>
-        </div>
-
-        {/* Quick Demo Switcher Section */}
-        <div className="pt-1">
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink mx-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Or Try Demo Personas (1-Click)
-            </span>
-            <div className="flex-grow border-t border-slate-200"></div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 mt-2">
-            
-            {/* Farmer Demo */}
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('farmer')}
-              className="group p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/70 text-left transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0">
-                  <Sprout className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-emerald-950">Farmer Persona</div>
-                  <div className="text-[10px] text-emerald-700">Ramesh Patel (Hubballi) • 4.8★</div>
-                </div>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-600 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            {/* Buyer Demo */}
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('wholesaler')}
-              className="group p-2.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-left transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0">
-                  <Store className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-blue-950">Wholesaler / Buyer Persona</div>
-                  <div className="text-[10px] text-blue-700">Pooja FreshMart (Belagavi APMC) • 4.6★</div>
-                </div>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-blue-600 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            {/* Transporter Demo */}
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('transporter')}
-              className="group p-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-700 text-white flex items-center justify-center shrink-0">
-                  <Truck className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-amber-950">Transporter Persona</div>
-                  <div className="text-[10px] text-amber-700">Raju Express (Dharwad) • 4.9★</div>
-                </div>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-amber-600 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-          </div>
         </div>
 
         {/* Footer info */}

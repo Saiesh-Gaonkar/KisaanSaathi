@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { createUserProfile } from '../../services/firebase';
@@ -6,11 +6,11 @@ import type { UserRole } from '../../types';
 import { Sprout, Store, Truck, ArrowRight, MapPin, User, Mail, Navigation } from 'lucide-react';
 
 export const Onboarding: React.FC = () => {
-  const { user, profile, reloadProfile } = useAuth();
+  const { user, profile, loading: authLoading, reloadProfile } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState(user?.displayName || '');
-  const [email] = useState(user?.email || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [role, setRole] = useState<UserRole>('farmer');
   const [address, setAddress] = useState('Navalgund Taluk, Hubballi Mandi Road, Karnataka');
   const [latitude, setLatitude] = useState<number>(15.3647);
@@ -19,10 +19,36 @@ export const Onboarding: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // If user already has a completed profile, redirect directly to dashboard
-  if (profile) {
-    navigate(`/${profile.role}`);
-    return null;
+  // Sync user details when auth loads
+  useEffect(() => {
+    if (user?.displayName && !name) {
+      setName(user.displayName);
+    }
+    if (user?.email && !email) {
+      setEmail(user.email);
+    }
+  }, [user]);
+
+  // Safe redirect in useEffect to avoid render-phase navigation
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        navigate('/login', { replace: true });
+      } else if (profile) {
+        navigate(`/${profile.role}`, { replace: true });
+      }
+    }
+  }, [authLoading, user, profile, navigate]);
+
+  if (authLoading || (user && profile)) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-slate-50">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs text-slate-500 font-medium">Checking your account details...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleDetectGPS = () => {
