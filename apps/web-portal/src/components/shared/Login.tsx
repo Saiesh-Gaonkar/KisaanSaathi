@@ -8,33 +8,98 @@ import {
   Truck, 
   ArrowRight,
   ShieldCheck,
-  UserCheck
+  Mail,
+  Lock,
+  User,
+  AlertCircle,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { loginWithGoogle, loginAnonymously, switchPersona } = useAuth();
+  const { loginWithGoogle, signUp, loginWithEmail, switchPersona } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
 
-  const handleGoogleLogin = async () => {
+  const [mode, setMode] = useState<'signin' | 'register'>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const formatFirebaseError = (err: any): string => {
+    const code = err?.code || '';
+    switch (code) {
+      case 'auth/email-already-in-use':
+        return 'An account with this email address already exists. Please switch to Sign In.';
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/weak-password':
+        return 'Password should be at least 6 characters long.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Invalid email or password. Please verify your credentials and try again.';
+      case 'auth/popup-closed-by-user':
+        return 'Google sign-in popup was closed before completing.';
+      case 'auth/network-request-failed':
+        return 'Network connection issue. Please check your internet connection.';
+      default:
+        return err?.message || 'An error occurred during authentication. Please try again.';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email.trim() || !password.trim()) {
+      setError('Please fill in both email and password.');
+      return;
+    }
+
+    if (mode === 'register') {
+      if (!name.trim()) {
+        setError('Please enter your full name or trade name.');
+        return;
+      }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+    }
+
     try {
       setLoading(true);
-      await loginWithGoogle();
-      navigate('/onboarding');
-    } catch (err) {
-      console.error('Login error:', err);
+      if (mode === 'register') {
+        await signUp(email.trim(), password, name.trim());
+        navigate('/onboarding');
+      } else {
+        await loginWithEmail(email.trim(), password);
+        navigate('/onboarding');
+      }
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setError(formatFirebaseError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAnonymousLogin = async () => {
+  const handleGoogleLogin = async () => {
+    setError(null);
     try {
       setLoading(true);
-      await loginAnonymously();
+      await loginWithGoogle();
       navigate('/onboarding');
-    } catch (err) {
-      console.error('Anonymous login error:', err);
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setError(formatFirebaseError(err));
     } finally {
       setLoading(false);
     }
@@ -51,33 +116,174 @@ export const Login: React.FC = () => {
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-700 to-green-600 text-white shadow-lg shadow-emerald-700/25 mb-2">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-700 to-green-600 text-white shadow-lg shadow-emerald-700/25 mb-1">
             <Sprout className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Welcome to KisaanSathi
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs text-slate-500">
             Tripartite agricultural marketplace connecting Farmers, Wholesalers, and Transporters
           </p>
         </div>
 
-        {/* Phase 1 Notice */}
+        {/* Phase 1 & 2 Security Notice */}
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-start space-x-2.5">
           <ShieldCheck className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
           <div>
-            <span className="font-semibold">Phase 1 Web Portal:</span> Direct Firebase Firestore integration with 2-step PIN handshake verification & live bid matching.
+            <span className="font-semibold">Secure Authentication:</span> Powered by Firebase Auth with Google Cloud Firestore data synchronization.
           </div>
         </div>
 
-        {/* Sign-In Options */}
-        <div className="space-y-2.5">
+        {/* Sign In / Register Tab Toggle */}
+        <div className="flex bg-slate-100 p-1 rounded-xl">
           <button
+            type="button"
+            onClick={() => { setMode('signin'); setError(null); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+              mode === 'signin' 
+                ? 'bg-white text-emerald-800 shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Sign In</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('register'); setError(null); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+              mode === 'register' 
+                ? 'bg-white text-emerald-800 shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Register New Account</span>
+          </button>
+        </div>
+
+        {/* Error Notification */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3 flex items-start space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Email & Password Form */}
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Full Name / Business Trade Name
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g., Ramesh Patel or FreshMart Agri"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                  required={mode === 'register'}
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="farmer@example.com"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                required
+              />
+            </div>
+          </div>
+
+          {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                  required={mode === 'register'}
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+          >
+            {loading ? (
+              <span>Processing...</span>
+            ) : mode === 'register' ? (
+              <>
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Create Account & Continue</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In to Account</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="relative flex py-1 items-center">
+          <div className="flex-grow border-t border-slate-200"></div>
+          <span className="flex-shrink mx-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            Or Sign In With Google
+          </span>
+          <div className="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        {/* Google Sign-In Button */}
+        <div>
+          <button
+            type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center space-x-3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm shadow-sm transition-all hover:shadow"
+            className="w-full flex items-center justify-center space-x-3 py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-sm transition-all hover:shadow"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -95,88 +301,81 @@ export const Login: React.FC = () => {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            <span>{loading ? 'Signing in...' : 'Sign in with Google'}</span>
-          </button>
-
-          {/* Anonymous Sign-in Button */}
-          <button
-            onClick={handleAnonymousLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl border border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900 font-semibold text-sm transition-all shadow-sm"
-          >
-            <UserCheck className="w-4 h-4 text-emerald-700" />
-            <span>{loading ? 'Connecting...' : 'Instant Anonymous / Guest Sign-In'}</span>
+            <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
           </button>
         </div>
 
         {/* Quick Demo Switcher Section */}
-        <div className="pt-2">
-          <div className="relative flex py-2 items-center">
+        <div className="pt-1">
+          <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink mx-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="flex-shrink mx-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Or Try Demo Personas (1-Click)
             </span>
             <div className="flex-grow border-t border-slate-200"></div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 mt-2">
+          <div className="grid grid-cols-1 gap-2 mt-2">
             
             {/* Farmer Demo */}
             <button
+              type="button"
               onClick={() => handleDemoLogin('farmer')}
-              className="group p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/70 text-left transition-all flex items-center justify-between"
+              className="group p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/70 text-left transition-all flex items-center justify-between"
             >
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0">
-                  <Sprout className="w-5 h-5" />
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0">
+                  <Sprout className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-emerald-950">Farmer Persona</div>
-                  <div className="text-[11px] text-emerald-700">Ramesh Patel (Hubballi) • 4.8★</div>
+                  <div className="text-[10px] text-emerald-700">Ramesh Patel (Hubballi) • 4.8★</div>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 text-emerald-600 group-hover:translate-x-1 transition-transform" />
             </button>
 
             {/* Buyer Demo */}
             <button
+              type="button"
               onClick={() => handleDemoLogin('wholesaler')}
-              className="group p-3 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-left transition-all flex items-center justify-between"
+              className="group p-2.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-left transition-all flex items-center justify-between"
             >
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0">
-                  <Store className="w-5 h-5" />
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0">
+                  <Store className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-blue-950">Wholesaler / Buyer Persona</div>
-                  <div className="text-[11px] text-blue-700">Pooja FreshMart (Belagavi APMC) • 4.6★</div>
+                  <div className="text-[10px] text-blue-700">Pooja FreshMart (Belagavi APMC) • 4.6★</div>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-blue-600 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 text-blue-600 group-hover:translate-x-1 transition-transform" />
             </button>
 
             {/* Transporter Demo */}
             <button
+              type="button"
               onClick={() => handleDemoLogin('transporter')}
-              className="group p-3 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all flex items-center justify-between"
+              className="group p-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all flex items-center justify-between"
             >
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-700 text-white flex items-center justify-center shrink-0">
-                  <Truck className="w-5 h-5" />
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-700 text-white flex items-center justify-center shrink-0">
+                  <Truck className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-amber-950">Transporter Persona</div>
-                  <div className="text-[11px] text-amber-700">Raju Express (Dharwad) • 4.9★</div>
+                  <div className="text-[10px] text-amber-700">Raju Express (Dharwad) • 4.9★</div>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-amber-600 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 text-amber-600 group-hover:translate-x-1 transition-transform" />
             </button>
 
           </div>
         </div>
 
         {/* Footer info */}
-        <div className="text-center text-[11px] text-slate-400">
+        <div className="text-center text-[10px] text-slate-400">
           State synchronized in real-time with Google Cloud Firestore
         </div>
 

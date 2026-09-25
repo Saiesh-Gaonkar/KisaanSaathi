@@ -4,7 +4,9 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
-  signInAnonymously,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
   signOut as fbSignOut 
 } from 'firebase/auth';
 import { 
@@ -126,20 +128,46 @@ export const signInWithGoogle = async (): Promise<any> => {
   }
 };
 
-export const signInAnonymouslyUser = async (): Promise<any> => {
+export const signUpWithEmail = async (
+  email: string, 
+  password: string, 
+  displayName?: string
+): Promise<any> => {
   if (isLiveFirebaseConfigured && auth) {
-    const res = await signInAnonymously(auth);
+    const res = await createUserWithEmailAndPassword(auth, email, password);
+    if (displayName && res.user) {
+      try {
+        await updateProfile(res.user, { displayName });
+      } catch (err) {
+        console.warn('Could not update profile displayName:', err);
+      }
+    }
     return res.user;
   } else {
-    const guestUser = {
-      uid: 'guest_' + Date.now(),
-      displayName: 'Guest Trader',
-      email: '',
-      isAnonymous: true,
+    const demoUser = {
+      uid: 'user_' + Date.now(),
+      displayName: displayName || email.split('@')[0],
+      email: email,
     };
-    localStorage.setItem('kisaansaathi_demo_auth', JSON.stringify(guestUser));
+    localStorage.setItem('kisaansaathi_demo_auth', JSON.stringify(demoUser));
     window.dispatchEvent(new CustomEvent('kisaansaathi_auth_change'));
-    return guestUser;
+    return demoUser;
+  }
+};
+
+export const signInWithEmail = async (email: string, password: string): Promise<any> => {
+  if (isLiveFirebaseConfigured && auth) {
+    const res = await signInWithEmailAndPassword(auth, email, password);
+    return res.user;
+  } else {
+    const demoUser = {
+      uid: 'demo_farmer_uid',
+      displayName: email.split('@')[0],
+      email: email,
+    };
+    localStorage.setItem('kisaansaathi_demo_auth', JSON.stringify(demoUser));
+    window.dispatchEvent(new CustomEvent('kisaansaathi_auth_change'));
+    return demoUser;
   }
 };
 

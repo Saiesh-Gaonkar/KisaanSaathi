@@ -5,7 +5,8 @@ import {
   isLiveFirebaseConfigured, 
   getUserProfile, 
   signInWithGoogle, 
-  signInAnonymouslyUser,
+  signUpWithEmail,
+  signInWithEmail,
   switchDemoUser, 
   logOut as fbLogOut 
 } from '../services/firebase';
@@ -15,8 +16,9 @@ interface AuthContextType {
   user: any | null;
   profile: UserProfile | null;
   loading: boolean;
+  signUp: (email: string, password: string, name?: string) => Promise<any>;
+  loginWithEmail: (email: string, password: string) => Promise<any>;
   loginWithGoogle: () => Promise<void>;
-  loginAnonymously: () => Promise<void>;
   switchPersona: (role: UserRole) => void;
   logout: () => Promise<void>;
   reloadProfile: () => Promise<void>;
@@ -82,24 +84,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const loginWithGoogle = async () => {
+  const signUp = async (email: string, password: string, name?: string) => {
     setLoading(true);
     try {
-      const loggedUser = await signInWithGoogle();
+      const loggedUser = await signUpWithEmail(email, password, name);
       setUser(loggedUser);
       if (loggedUser?.uid) {
         const p = await getUserProfile(loggedUser.uid);
         setProfile(p);
       }
+      return loggedUser;
     } finally {
       setLoading(false);
     }
   };
 
-  const loginAnonymously = async () => {
+  const loginWithEmail = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const loggedUser = await signInAnonymouslyUser();
+      const loggedUser = await signInWithEmail(email, password);
+      setUser(loggedUser);
+      if (loggedUser?.uid) {
+        const p = await getUserProfile(loggedUser.uid);
+        setProfile(p);
+      }
+      return loggedUser;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const loggedUser = await signInWithGoogle();
       setUser(loggedUser);
       if (loggedUser?.uid) {
         const p = await getUserProfile(loggedUser.uid);
@@ -132,8 +150,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         profile,
         loading,
+        signUp,
+        loginWithEmail,
         loginWithGoogle,
-        loginAnonymously,
         switchPersona,
         logout,
         reloadProfile,

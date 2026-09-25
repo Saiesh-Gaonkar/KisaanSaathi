@@ -1,0 +1,156 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ──────────────────────────────────────────────
+    // Helper Functions
+    // ──────────────────────────────────────────────
+
+    // User is signed in and not anonymous
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // User is the document owner
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ──────────────────────────────────────────────
+    // 1. User Profiles (`users/{userId}`)
+    // ──────────────────────────────────────────────
+    match /users/{userId} {
+      // Authenticated marketplace members can read profiles (trust score, name, role)
+      allow read: if isSignedIn();
+
+      // Only the user themselves can create their own profile
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId;
+
+      // Users can update basic details (name, location, email)
+      // but CANNOT tamper with trust_score, completed_deals_count, or user_status
+      allow update: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                        'trust_score', 
+                        'completed_deals_count', 
+                        'user_status'
+                    ]));
+
+      // Prevent client-side profile deletion
+      allow delete: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // 2. Inventory Batches (`inventory_batches/{batchId}`)
+    // ──────────────────────────────────────────────
+    match /inventory_batches/{batchId} {
+      // Wholesalers, transporters, and farmers need to discover active batches
+      allow read: if isSignedIn();
+
+      // Only registered farmers can create batches under their own uid
+      allow create: if isSignedIn()
+                    && request.resource.data.farmer_id == request.auth.uid;
+
+      // The owner farmer can update details, or marketplace participants
+      // can lock deals / submit verification PINs
+      allow update: if isSignedIn() && (
+        resource.data.farmer_id == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 
+          'locked_buyer_id', 
+          'locked_transporter_id',
+          'handshake_farmer_pin',
+          'handshake_transporter_pin',
+          'handshake_buyer_pin',
+          'matched_at',
+          'ai_recommendations'
+        ])
+      );
+
+      // Only owner farmer can delete if batch is not yet locked or active
+      allow delete: if isSignedIn() 
+                    && resource.data.farmer_id == request.auth.uid
+                    && resource.data.status == 'PENDING_SIMULATION';
+    }
+
+    // ──────────────────────────────────────────────
+    // 3. Buyer Bids (`buyer_bids/{bidId}`)
+    // ──────────────────────────────────────────────
+    match /buyer_bids/{bidId} {
+      // Marketplace participants can view open bids
+      allow read: if isSignedIn();
+
+      // Wholesalers can create bids with their own buyer_id
+      allow create: if isSignedIn()
+                    && request.resource.data.buyer_id == request.auth.uid;
+
+      // Buyer can modify their open bid, OR the farmer owning the batch can accept/reject it
+      allow update: if isSignedIn() && (
+        resource.data.buyer_id == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+      );
+
+      // Buyer can retract open bids
+      allow delete: if isSignedIn() 
+                    && resource.data.buyer_id == request.auth.uid
+                    && resource.data.status == 'OPEN';
+    }
+
+    // ──────────────────────────────────────────────
+    // 4. Transporter Routes (`transporter_routes/{routeId}`)
+    // ──────────────────────────────────────────────
+    match /transporter_routes/{routeId} {
+      // Farmers and buyers need to discover available freight routes
+      allow read: if isSignedIn();
+
+      // Transporters create routes with their own transporter_id
+      allow create: if isSignedIn()
+                    && request.resource.data.transporter_id == request.auth.uid;
+
+      // Transporter can update their route, OR booking flow can mark status as CLAIMED
+      allow update: if isSignedIn() && (
+        resource.data.transporter_id == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'claimed_batch_id'])
+      );
+
+      // Transporters can delete their own routes
+      allow delete: if isSignedIn() && resource.data.transporter_id == request.auth.uid;
+    }
+
+    // ──────────────────────────────────────────────
+    // 5. Deals & Handshakes (`deals_and_reviews/{dealId}`)
+    // ──────────────────────────────────────────────
+    match /deals_and_reviews/{dealId} {
+      // Only parties involved in the deal can access it
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.farmer_id ||
+        request.auth.uid == resource.data.buyer_id ||
+        request.auth.uid == resource.data.transporter_id
+      );
+
+      // Deal created when farmer locks an agreement
+      allow create: if isSignedIn() && (
+        request.auth.uid == request.resource.data.farmer_id ||
+        request.auth.uid == request.resource.data.buyer_id
+      );
+
+      // Parties can submit delivery PIN confirmations and ratings
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.farmer_id ||
+        request.auth.uid == resource.data.buyer_id ||
+        request.auth.uid == resource.data.transporter_id
+      );
+
+      allow delete: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // Default Fallback: Deny any unhandled path
+    // ──────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
