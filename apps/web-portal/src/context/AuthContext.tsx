@@ -5,6 +5,7 @@ import {
   isLiveFirebaseConfigured, 
   getUserProfile, 
   signInWithGoogle, 
+  signInAnonymouslyUser,
   switchDemoUser, 
   logOut as fbLogOut 
 } from '../services/firebase';
@@ -15,6 +16,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
+  loginAnonymously: () => Promise<void>;
   switchPersona: (role: UserRole) => void;
   logout: () => Promise<void>;
   reloadProfile: () => Promise<void>;
@@ -94,6 +96,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginAnonymously = async () => {
+    setLoading(true);
+    try {
+      const loggedUser = await signInAnonymouslyUser();
+      setUser(loggedUser);
+      if (loggedUser?.uid) {
+        const p = await getUserProfile(loggedUser.uid);
+        setProfile(p);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const switchPersona = (role: UserRole) => {
     const p = switchDemoUser(role);
     setUser({
@@ -117,6 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         loginWithGoogle,
+        loginAnonymously,
         switchPersona,
         logout,
         reloadProfile,

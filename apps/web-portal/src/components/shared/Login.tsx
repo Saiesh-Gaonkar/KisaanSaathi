@@ -7,11 +7,12 @@ import {
   Store, 
   Truck, 
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { loginWithGoogle, switchPersona } = useAuth();
+  const { loginWithGoogle, loginAnonymously, switchPersona } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
@@ -22,6 +23,18 @@ export const Login: React.FC = () => {
       navigate('/onboarding');
     } catch (err) {
       console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnonymousLogin = async () => {
+    try {
+      setLoading(true);
+      await loginAnonymously();
+      navigate('/onboarding');
+    } catch (err) {
+      console.error('Anonymous login error:', err);
     } finally {
       setLoading(false);
     }
@@ -57,8 +70,8 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        {/* Google Sign-In */}
-        <div className="space-y-3">
+        {/* Sign-In Options */}
+        <div className="space-y-2.5">
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
@@ -83,6 +96,16 @@ export const Login: React.FC = () => {
               />
             </svg>
             <span>{loading ? 'Signing in...' : 'Sign in with Google'}</span>
+          </button>
+
+          {/* Anonymous Sign-in Button */}
+          <button
+            onClick={handleAnonymousLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl border border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900 font-semibold text-sm transition-all shadow-sm"
+          >
+            <UserCheck className="w-4 h-4 text-emerald-700" />
+            <span>{loading ? 'Connecting...' : 'Instant Anonymous / Guest Sign-In'}</span>
           </button>
         </div>
 

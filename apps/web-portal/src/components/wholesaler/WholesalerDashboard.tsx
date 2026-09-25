@@ -14,7 +14,10 @@ import {
   CheckCircle2, 
   KeyRound,
   TrendingUp,
-  Package
+  Package,
+  MapPin,
+  Boxes,
+  AlertCircle
 } from 'lucide-react';
 
 export const WholesalerDashboard: React.FC = () => {
@@ -23,6 +26,7 @@ export const WholesalerDashboard: React.FC = () => {
   const { bids } = useBids();
   const { deals } = useDeals();
 
+  const [wholesalerTab, setWholesalerTab] = useState<'exchange' | 'farmer_stock'>('exchange');
   const [selectedCrop, setSelectedCrop] = useState<string>('ALL');
   const [biddingBatch, setBiddingBatch] = useState<InventoryBatch | null>(null);
   const [offeredPrice, setOfferedPrice] = useState<number>(2200);
@@ -246,46 +250,155 @@ export const WholesalerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* MARKETPLACE SECTION (LISTED_ACTIVE BATCHES) */}
-      <div className="space-y-4">
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Active Crop Batches for Direct Bidding</h2>
-            <p className="text-xs text-slate-500">Only batches with status LISTED_ACTIVE appear in this exchange.</p>
+      {/* Tab Navigation */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => setWholesalerTab('exchange')}
+          className={`py-3 px-5 text-sm font-bold border-b-2 flex items-center space-x-2 transition-colors ${
+            wholesalerTab === 'exchange'
+              ? 'border-blue-600 text-blue-800'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Store className="w-4 h-4" />
+          <span>Active Produce Marketplace</span>
+          <span className="text-[10px] ml-1.5 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">
+            {activeBatches.length} Live Batches
+          </span>
+        </button>
+
+        <button
+          onClick={() => setWholesalerTab('farmer_stock')}
+          className={`py-3 px-5 text-sm font-bold border-b-2 flex items-center space-x-2 transition-colors ${
+            wholesalerTab === 'farmer_stock'
+              ? 'border-blue-600 text-blue-800'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span>Farmer Available Stock & Farm Directory</span>
+          <span className="text-[10px] ml-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            {batches.length} Farm Lots
+          </span>
+        </button>
+      </div>
+
+      {/* VIEW 1: ACTIVE MARKETPLACE (LISTED_ACTIVE BATCHES) */}
+      {wholesalerTab === 'exchange' && (
+        <div className="space-y-4">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Active Crop Batches for Direct Bidding</h2>
+              <p className="text-xs text-slate-500">Only batches with status LISTED_ACTIVE appear in this exchange.</p>
+            </div>
+
+            {/* Crop Filter Pill Buttons */}
+            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold overflow-x-auto">
+              {['ALL', 'Tomato', 'Onion', 'Green Chilli', 'Potato'].map(cropName => (
+                <button
+                  key={cropName}
+                  onClick={() => setSelectedCrop(cropName)}
+                  className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                    selectedCrop.toLowerCase() === cropName.toLowerCase()
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {cropName}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Crop Filter Pill Buttons */}
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold overflow-x-auto">
-            {['ALL', 'Tomato', 'Onion', 'Green Chilli', 'Potato'].map(cropName => (
-              <button
-                key={cropName}
-                onClick={() => setSelectedCrop(cropName)}
-                className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
-                  selectedCrop.toLowerCase() === cropName.toLowerCase()
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {cropName}
-              </button>
-            ))}
-          </div>
+          {batchesLoading ? (
+            <div className="p-12 text-center text-slate-400 text-sm">Loading live marketplace...</div>
+          ) : activeBatches.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center space-y-3">
+              <Package className="w-12 h-12 text-slate-300 mx-auto" />
+              <div className="text-sm font-bold text-slate-700">No Active Crops in this Category</div>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Batches will show up here once farmers register and publish them to LISTED_ACTIVE. (You can switch to Farmer persona to publish!)
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeBatches.map(batch => (
+                <div 
+                  key={batch.batch_id}
+                  className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                          {batch.crop}
+                        </span>
+                        <h3 className="text-base font-extrabold text-slate-900 mt-1">{batch.variety}</h3>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        LIVE
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Available Lot:</span>
+                        <span className="font-bold text-slate-900">{batch.quantity_qtl} Quintals</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Min Floor Price:</span>
+                        <span className="font-bold text-emerald-700">{formatINR(batch.min_price_per_qtl || 2000)} / qtl</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Harvest Date:</span>
+                        <span>{batch.harvest_date}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Farmer:</span>
+                        <span className="font-semibold text-slate-800">{batch.farmer_name || 'Farmer'}</span>
+                      </div>
+                      <div className="pt-1 text-[11px] text-slate-500 flex items-center">
+                        <MapPin className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
+                        <span className="truncate">
+                          {batch.farmer_location?.address ? batch.farmer_location.address.slice(0, 30) + '...' : 'Hubballi Mandi'} ({batch.farmer_location?.latitude ? batch.farmer_location.latitude.toFixed(4) : '15.3647'}° N, {batch.farmer_location?.longitude ? batch.farmer_location.longitude.toFixed(4) : '75.1240'}° E)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 mt-4 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setBiddingBatch(batch);
+                        setOfferedPrice(batch.min_price_per_qtl || 2200);
+                      }}
+                      className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <span>Place Bid on Batch</span>
+                      <TrendingUp className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
 
-        {batchesLoading ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Loading live marketplace...</div>
-        ) : activeBatches.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center space-y-3">
-            <Package className="w-12 h-12 text-slate-300 mx-auto" />
-            <div className="text-sm font-bold text-slate-700">No Active Crops in this Category</div>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Batches will show up here once farmers register and publish them to LISTED_ACTIVE. (You can switch to Farmer persona to publish!)
+      {/* VIEW 2: FARMER AVAILABLE STOCK DIRECTORY */}
+      {wholesalerTab === 'farmer_stock' && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Farmer Farmgate Stock & Available Inventory</h2>
+            <p className="text-xs text-slate-500">
+              Browse current farm inventory stock available directly from registered farmers with verified GPS locations and reservation floor prices.
             </p>
           </div>
-        ) : (
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeBatches.map(batch => (
+            {batches.map(batch => (
               <div 
                 key={batch.batch_id}
                 className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col justify-between"
@@ -293,28 +406,45 @@ export const WholesalerDashboard: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-xs font-bold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                         {batch.crop}
                       </span>
                       <h3 className="text-base font-extrabold text-slate-900 mt-1">{batch.variety}</h3>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      LIVE
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      batch.status === 'LISTED_ACTIVE' 
+                        ? 'bg-emerald-100 text-emerald-800' 
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {batch.status === 'LISTED_ACTIVE' ? 'LISTED ACTIVE' : 'FARM STOCK'}
                     </span>
                   </div>
 
-                  <div className="space-y-1 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                  <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Available Lot:</span>
-                      <span className="font-bold text-slate-900">{batch.quantity_qtl} Quintals</span>
+                      <span className="text-slate-400">Available Stock:</span>
+                      <span className="font-extrabold text-slate-900">{batch.quantity_qtl} Quintals</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Harvest Date:</span>
-                      <span>{batch.harvest_date}</span>
+                      <span className="text-slate-400">Min Reservation Price:</span>
+                      <span className="font-bold text-emerald-700">{formatINR(batch.min_price_per_qtl || 2000)} / qtl</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Total Lot Valuation:</span>
+                      <span className="font-semibold text-slate-800">{formatINR((batch.quantity_qtl || 0) * (batch.min_price_per_qtl || 2000))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Farmer:</span>
                       <span className="font-semibold text-slate-800">{batch.farmer_name || 'Farmer'}</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                      <div className="text-[11px] font-medium text-slate-700 flex items-start">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 mr-1 mt-0.5 shrink-0" />
+                        <span>{batch.farmer_location?.address || 'Navalgund Taluk, Hubballi, Karnataka'}</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-emerald-700 pl-4">
+                        GPS: {batch.farmer_location?.latitude ? batch.farmer_location.latitude.toFixed(6) : '15.364700'}° N, {batch.farmer_location?.longitude ? batch.farmer_location.longitude.toFixed(6) : '75.124000'}° E
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -323,20 +453,20 @@ export const WholesalerDashboard: React.FC = () => {
                   <button
                     onClick={() => {
                       setBiddingBatch(batch);
-                      setOfferedPrice(2200);
+                      setOfferedPrice(batch.min_price_per_qtl || 2200);
                     }}
-                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center space-x-2"
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center space-x-2"
                   >
-                    <span>Place Bid on Batch</span>
                     <TrendingUp className="w-4 h-4" />
+                    <span>Bid on Farmer Stock</span>
                   </button>
                 </div>
 
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* MY BIDS SECTION */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
@@ -390,6 +520,12 @@ export const WholesalerDashboard: React.FC = () => {
                 <p className="text-xs text-slate-500">
                   {biddingBatch.crop} • {biddingBatch.variety} ({biddingBatch.quantity_qtl} qtl)
                 </p>
+                <div className="text-[10px] text-slate-400 mt-0.5 flex items-center">
+                  <MapPin className="w-3 h-3 mr-0.5" />
+                  <span>
+                    Farm: {biddingBatch.farmer_location?.latitude ? biddingBatch.farmer_location.latitude.toFixed(4) : '15.3647'}° N, {biddingBatch.farmer_location?.longitude ? biddingBatch.farmer_location.longitude.toFixed(4) : '75.1240'}° E
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setBiddingBatch(null)}
@@ -398,6 +534,21 @@ export const WholesalerDashboard: React.FC = () => {
                 ✕
               </button>
             </div>
+
+            {/* Minimum Floor Price Indicator */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Farmer Minimum Floor Price:</span>
+              <span className="font-extrabold text-emerald-700">{formatINR(biddingBatch.min_price_per_qtl || 2000)} / qtl</span>
+            </div>
+
+            {offeredPrice < (biddingBatch.min_price_per_qtl || 0) && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-start space-x-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  Notice: Your offered price (₹{offeredPrice}) is below the farmer's reservation floor ({formatINR(biddingBatch.min_price_per_qtl)}/qtl). AI matchmaking may deprioritize or reject this bid.
+                </span>
+              </div>
+            )}
 
             <form onSubmit={handlePlaceBid} className="space-y-4">
               

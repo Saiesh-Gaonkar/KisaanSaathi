@@ -4,6 +4,7 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  signInAnonymously,
   signOut as fbSignOut 
 } from 'firebase/auth';
 import { 
@@ -16,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import type { 
   UserProfile, 
+  UserLocation,
   InventoryBatch, 
   BuyerBid, 
   TransporterRoute, 
@@ -124,6 +126,23 @@ export const signInWithGoogle = async (): Promise<any> => {
   }
 };
 
+export const signInAnonymouslyUser = async (): Promise<any> => {
+  if (isLiveFirebaseConfigured && auth) {
+    const res = await signInAnonymously(auth);
+    return res.user;
+  } else {
+    const guestUser = {
+      uid: 'guest_' + Date.now(),
+      displayName: 'Guest Trader',
+      email: '',
+      isAnonymous: true,
+    };
+    localStorage.setItem('kisaansaathi_demo_auth', JSON.stringify(guestUser));
+    window.dispatchEvent(new CustomEvent('kisaansaathi_auth_change'));
+    return guestUser;
+  }
+};
+
 export const switchDemoUser = (role: UserRole): UserProfile => {
   const demoUsers: Record<UserRole, UserProfile> = {
     farmer: {
@@ -132,7 +151,11 @@ export const switchDemoUser = (role: UserRole): UserProfile => {
       email: 'ramesh.farmer@example.com',
       role: 'farmer',
       user_status: 'VERIFIED',
-      location: { village_or_district: 'Hubballi, Karnataka' },
+      location: {
+        address: 'Navalgund Taluk, Hubballi Mandi Road, Dharwad District, Karnataka 580025',
+        latitude: 15.3647,
+        longitude: 75.1240,
+      },
       trust_score: 4.8,
       completed_deals_count: 14,
       created_at: new Date().toISOString(),
@@ -143,7 +166,11 @@ export const switchDemoUser = (role: UserRole): UserProfile => {
       email: 'pooja.buyer@freshmart.in',
       role: 'wholesaler',
       user_status: 'VERIFIED',
-      location: { village_or_district: 'Belagavi APMC' },
+      location: {
+        address: 'Shop 42, Central APMC Yard, Belagavi, Karnataka 590001',
+        latitude: 15.8497,
+        longitude: 74.4977,
+      },
       trust_score: 4.6,
       completed_deals_count: 28,
       created_at: new Date().toISOString(),
@@ -154,7 +181,11 @@ export const switchDemoUser = (role: UserRole): UserProfile => {
       email: 'raju.transporter@expresshaul.com',
       role: 'transporter',
       user_status: 'VERIFIED',
-      location: { village_or_district: 'Dharwad Corridor' },
+      location: {
+        address: 'NH4 Bypass Logistics Corridor, Dharwad, Karnataka 580004',
+        latitude: 15.4589,
+        longitude: 75.0078,
+      },
       trust_score: 4.9,
       completed_deals_count: 32,
       created_at: new Date().toISOString(),
@@ -215,7 +246,7 @@ export const createUserProfile = async (
   name: string, 
   email: string, 
   role: UserRole, 
-  locationDistrict: string
+  location: UserLocation
 ): Promise<UserProfile> => {
   const profile: UserProfile = {
     uid,
@@ -223,7 +254,7 @@ export const createUserProfile = async (
     email,
     role,
     user_status: 'PROVISIONAL',
-    location: { village_or_district: locationDistrict },
+    location,
     trust_score: 3.5,
     completed_deals_count: 0,
     created_at: isLiveFirebaseConfigured ? serverTimestamp() : new Date().toISOString(),
@@ -251,16 +282,20 @@ export const registerHarvestBatch = async (
   crop: string,
   variety: string,
   quantityQtl: number,
-  harvestDateStr: string
+  minPricePerQtl: number,
+  harvestDateStr: string,
+  farmerLocation?: UserLocation
 ): Promise<string> => {
   const batchId = 'batch_' + Date.now();
   const batchData: InventoryBatch = {
     batch_id: batchId,
     farmer_id: farmerId,
     farmer_name: farmerName,
+    farmer_location: farmerLocation,
     crop,
     variety,
     quantity_qtl: quantityQtl,
+    min_price_per_qtl: minPricePerQtl,
     harvest_date: harvestDateStr,
     status: 'PENDING_SIMULATION', // advanced immediately from DRAFT per spec
     ai_recommendations: null, // Always null at creation per Section 4/8
@@ -336,10 +371,18 @@ export const declareTransporterRoute = async (
   capacityQtl: number,
   origin: string,
   destination: string,
+  distanceKm: number,
   isBackhaul: boolean,
-  tariffPerKm: number
+  tariffPerKm: number,
+  cleaningCharge: number = 300,
+  labourCharge: number = 600,
+  maintenanceCharge: number = 400
 ): Promise<string> => {
   const routeId = 'route_' + Date.now();
+  const totalVehiclePrice = Number(
+    ((tariffPerKm * distanceKm) + cleaningCharge + labourCharge + maintenanceCharge).toFixed(0)
+  );
+
   const routeData: TransporterRoute = {
     route_id: routeId,
     transporter_id: transporterId,
@@ -348,8 +391,13 @@ export const declareTransporterRoute = async (
     capacity_qtl: capacityQtl,
     origin,
     destination,
+    distance_km: distanceKm,
     is_backhaul: isBackhaul,
     tariff_per_km: tariffPerKm,
+    cleaning_charge: cleaningCharge,
+    labour_charge: labourCharge,
+    maintenance_charge: maintenanceCharge,
+    total_vehicle_price: totalVehiclePrice,
     transporter_trust_snapshot: transporterTrust || 3.5,
     status: 'AVAILABLE',
     created_at: isLiveFirebaseConfigured ? serverTimestamp() : new Date().toISOString(),

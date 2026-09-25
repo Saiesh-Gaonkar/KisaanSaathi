@@ -2,15 +2,19 @@ export type UserRole = 'farmer' | 'wholesaler' | 'transporter';
 
 export type UserStatus = 'PROVISIONAL' | 'VERIFIED';
 
+export interface UserLocation {
+  address: string; // Manually written village, mandi, or street address
+  latitude: number; // Exact GPS latitude
+  longitude: number; // Exact GPS longitude
+}
+
 export interface UserProfile {
   uid: string;
   role: UserRole;
   user_status: UserStatus;
   name: string;
   email: string;
-  location: {
-    village_or_district: string;
-  };
+  location: UserLocation;
   trust_score: number;
   completed_deals_count: number;
   created_at: any;
@@ -41,10 +45,12 @@ export interface InventoryBatch {
   batch_id: string;
   farmer_id: string;
   farmer_name?: string;
+  farmer_location?: UserLocation;
   crop: string;
   variety: string;
   quantity_qtl: number;
-  harvest_date: any;
+  min_price_per_qtl: number; // Minimum reservation price per quintal set by farmer
+  harvest_date: string; // YYYY-MM-DD
   status: BatchStatus;
   ai_recommendations: AIRecommendation[] | null;
   created_at: any;
@@ -75,8 +81,16 @@ export interface TransporterRoute {
   capacity_qtl: number;
   origin: string;
   destination: string;
+  distance_km: number; // Estimated corridor distance
   is_backhaul: boolean;
-  tariff_per_km: number;
+  tariff_per_km: number; // Base rate per km
+
+  // Itemized vehicle pricing breakdown for hackathon transparency
+  cleaning_charge: number;      // Sanitation / cleaning charge
+  labour_charge: number;        // Loading & unloading handling charge
+  maintenance_charge: number;   // Vehicle wear & maintenance charge
+  total_vehicle_price: number;  // (distance_km * tariff_per_km) + cleaning + labour + maintenance
+
   transporter_trust_snapshot: number;
   status: RouteStatus;
   created_at: any;
@@ -116,3 +130,4 @@ export interface DealAndReview {
   created_at: any;
   fulfilled_at: any | null;
 }
+

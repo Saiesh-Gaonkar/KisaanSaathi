@@ -17,7 +17,8 @@ import {
   AlertCircle, 
   Send,
   ChevronRight,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
 
 export const BatchDetailView: React.FC = () => {
@@ -108,10 +109,14 @@ export const BatchDetailView: React.FC = () => {
       </div>
 
       {/* Batch Overview Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
         <div>
           <span className="text-slate-400 font-medium block">Total Harvest Volume</span>
           <span className="text-base font-extrabold text-slate-900 mt-0.5 block">{batch.quantity_qtl} Quintals</span>
+        </div>
+        <div>
+          <span className="text-slate-400 font-medium block">Reserve Floor Price</span>
+          <span className="text-base font-extrabold text-emerald-700 mt-0.5 block">{formatINR(batch.min_price_per_qtl || 2000)} / qtl</span>
         </div>
         <div>
           <span className="text-slate-400 font-medium block">Harvest Timestamp</span>
@@ -120,6 +125,10 @@ export const BatchDetailView: React.FC = () => {
         <div>
           <span className="text-slate-400 font-medium block">Registered Farmer</span>
           <span className="text-base font-extrabold text-slate-900 mt-0.5 block">{batch.farmer_name || profile?.name}</span>
+          <span className="text-[10px] text-slate-400 flex items-center mt-0.5">
+            <MapPin className="w-2.5 h-2.5 mr-0.5" />
+            {batch.farmer_location?.latitude ? Number(batch.farmer_location.latitude).toFixed(4) : '15.3647'}° N, {batch.farmer_location?.longitude ? Number(batch.farmer_location.longitude).toFixed(4) : '75.1240'}° E
+          </span>
         </div>
         <div>
           <span className="text-slate-400 font-medium block">Market Discovery Status</span>
@@ -362,13 +371,45 @@ export const BatchDetailView: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-slate-600">
-                        <div>Vehicle: <span className="font-semibold text-slate-800">{route.vehicle_type}</span></div>
-                        <div>Capacity: <span className="font-semibold text-slate-800">{route.capacity_qtl} qtl</span></div>
-                        <div>Rate: <span className="font-semibold text-slate-800">₹{route.tariff_per_km}/km</span></div>
-                        <div className="flex items-center text-amber-600 font-semibold">
-                          <Star className="w-3.5 h-3.5 fill-amber-500 mr-1" />
-                          {route.transporter_trust_snapshot.toFixed(1)}★ Trust
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1.5 text-slate-600">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-medium">Total Vehicle Fare:</span>
+                          <span className="text-sm font-extrabold text-emerald-800">
+                            {formatINR(route.total_vehicle_price || Math.round((route.distance_km || 95) * route.tariff_per_km + (route.cleaning_charge || 300) + (route.labour_charge || 600) + (route.maintenance_charge || 400)))}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                          <div>Vehicle: <span className="font-semibold text-slate-800">{route.vehicle_type}</span></div>
+                          <div>Capacity: <span className="font-semibold text-slate-800">{route.capacity_qtl} qtl</span></div>
+                          <div>Distance: <span className="font-semibold text-slate-800">{route.distance_km || 95} km</span></div>
+                          <div>Base Rate: <span className="font-semibold text-slate-800">₹{route.tariff_per_km}/km</span></div>
+                        </div>
+
+                        {/* Itemized Surcharges Breakdown */}
+                        <div className="pt-1.5 border-t border-slate-100 grid grid-cols-3 gap-1 text-[10px] text-center">
+                          <div className="p-1 rounded bg-slate-50 border border-slate-200">
+                            <span className="text-slate-400 block text-[9px]">Cleaning</span>
+                            <span className="font-semibold text-slate-700">{formatINR(route.cleaning_charge ?? 300)}</span>
+                          </div>
+                          <div className="p-1 rounded bg-slate-50 border border-slate-200">
+                            <span className="text-slate-400 block text-[9px]">Labour</span>
+                            <span className="font-semibold text-slate-700">{formatINR(route.labour_charge ?? 600)}</span>
+                          </div>
+                          <div className="p-1 rounded bg-slate-50 border border-slate-200">
+                            <span className="text-slate-400 block text-[9px]">Maint.</span>
+                            <span className="font-semibold text-slate-700">{formatINR(route.maintenance_charge ?? 400)}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 text-[11px]">
+                          <div className="flex items-center text-amber-600 font-semibold">
+                            <Star className="w-3 h-3 fill-amber-500 mr-1" />
+                            {route.transporter_trust_snapshot.toFixed(1)}★ Safety
+                          </div>
+                          <span className="text-slate-400 text-[10px]">
+                            {route.is_backhaul ? 'Backhaul Discounted' : 'Standard Headhaul'}
+                          </span>
                         </div>
                       </div>
                     </div>

@@ -3,14 +3,15 @@ import { useAuth } from '../../context/AuthContext';
 import { useRoutes, useDeals } from '../../hooks/useRealtime';
 import { 
   declareTransporterRoute, 
-  verifyFarmgatePin 
+  verifyFarmgatePin,
+  formatINR 
 } from '../../services/firebase';
 import { 
   Truck, 
   Plus, 
   Star, 
   CheckCircle2, 
-  KeyRound 
+  KeyRound
 } from 'lucide-react';
 
 export const TransporterDashboard: React.FC = () => {
@@ -23,9 +24,16 @@ export const TransporterDashboard: React.FC = () => {
   const [capacity, setCapacity] = useState<number>(35);
   const [origin, setOrigin] = useState('Hubballi');
   const [destination, setDestination] = useState('Belagavi APMC');
+  const [distanceKm, setDistanceKm] = useState<number>(95);
   const [tariff, setTariff] = useState<number>(14.5);
+  const [cleaningCharge, setCleaningCharge] = useState<number>(300);
+  const [labourCharge, setLabourCharge] = useState<number>(600);
+  const [maintenanceCharge, setMaintenanceCharge] = useState<number>(400);
   const [isBackhaul, setIsBackhaul] = useState(true);
   const [submittingRoute, setSubmittingRoute] = useState(false);
+
+  // Live total calculation
+  const totalVehiclePrice = Math.round((distanceKm * tariff) + cleaningCharge + labourCharge + maintenanceCharge);
 
   // Farmgate PIN input states
   const [farmgatePinInputs, setFarmgatePinInputs] = useState<Record<string, string>>({});
@@ -50,8 +58,12 @@ export const TransporterDashboard: React.FC = () => {
         Number(capacity),
         origin.trim(),
         destination.trim(),
+        Number(distanceKm),
         isBackhaul,
-        Number(tariff)
+        Number(tariff),
+        Number(cleaningCharge),
+        Number(labourCharge),
+        Number(maintenanceCharge)
       );
       setShowModal(false);
     } catch (err) {
@@ -242,15 +254,45 @@ export const TransporterDashboard: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5 text-xs text-slate-600 pt-3 mt-2 border-t border-slate-100">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 font-medium">Total Vehicle Fare:</span>
+                      <span className="text-base font-extrabold text-emerald-800">
+                        {formatINR(route.total_vehicle_price || Math.round((route.distance_km || 95) * route.tariff_per_km + (route.cleaning_charge || 300) + (route.labour_charge || 600) + (route.maintenance_charge || 400)))}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Route Distance:</span>
+                      <span className="font-semibold text-slate-900">{route.distance_km || 95} km</span>
+                    </div>
+
                     <div className="flex justify-between">
                       <span className="text-slate-400">Available Capacity:</span>
                       <span className="font-bold text-slate-900">{route.capacity_qtl} Quintals</span>
                     </div>
+
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Freight Rate:</span>
-                      <span className="font-bold text-emerald-700">₹{route.tariff_per_km} / km</span>
+                      <span className="text-slate-400">Base Freight Rate:</span>
+                      <span className="font-bold text-slate-800">₹{route.tariff_per_km} / km</span>
                     </div>
-                    <div className="flex justify-between">
+
+                    {/* Transparent fee breakdown pills */}
+                    <div className="pt-2 border-t border-slate-100 grid grid-cols-3 gap-1.5 text-[10px] text-center">
+                      <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                        <span className="text-slate-400 block text-[9px]">Cleaning</span>
+                        <span className="font-bold text-slate-700">{formatINR(route.cleaning_charge ?? 300)}</span>
+                      </div>
+                      <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                        <span className="text-slate-400 block text-[9px]">Labour</span>
+                        <span className="font-bold text-slate-700">{formatINR(route.labour_charge ?? 600)}</span>
+                      </div>
+                      <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                        <span className="text-slate-400 block text-[9px]">Maintenance</span>
+                        <span className="font-bold text-slate-700">{formatINR(route.maintenance_charge ?? 400)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between pt-1">
                       <span className="text-slate-400">Backhaul Mode:</span>
                       <span className="font-semibold text-slate-800">
                         {route.is_backhaul ? 'Yes (Discounted)' : 'Standard Headhaul'}
@@ -276,12 +318,12 @@ export const TransporterDashboard: React.FC = () => {
       {/* Declare Route Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Declare Freight Route</h3>
-                <p className="text-xs text-slate-500">List truck capacity for farmer batch matching</p>
+                <h3 className="text-lg font-bold text-slate-900">Declare Freight Route & Vehicle Cost</h3>
+                <p className="text-xs text-slate-500">Itemize distance tariff, cleaning, labour, and maintenance</p>
               </div>
               <button
                 onClick={() => setShowModal(false)}
@@ -308,17 +350,31 @@ export const TransporterDashboard: React.FC = () => {
                 </select>
               </div>
 
-              {/* Capacity */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Capacity (Quintals)</label>
-                <input
-                  type="number"
-                  min="5"
-                  value={capacity}
-                  onChange={(e) => setCapacity(Number(e.target.value))}
-                  required
-                  className="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
-                />
+              {/* Capacity & Distance */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Capacity (Quintals)</label>
+                  <input
+                    type="number"
+                    min="5"
+                    value={capacity}
+                    onChange={(e) => setCapacity(Number(e.target.value))}
+                    required
+                    className="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Estimated Distance (KM)</label>
+                  <input
+                    type="number"
+                    min="5"
+                    value={distanceKm}
+                    onChange={(e) => setDistanceKm(Number(e.target.value))}
+                    required
+                    className="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
+                  />
+                </div>
               </div>
 
               {/* Origin & Destination */}
@@ -349,7 +405,7 @@ export const TransporterDashboard: React.FC = () => {
 
               {/* Tariff per KM */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Tariff Rate (₹ / KM)</label>
+                <label className="text-xs font-bold text-slate-700">Base Freight Tariff Rate (₹ / KM)</label>
                 <input
                   type="number"
                   min="5"
@@ -359,6 +415,77 @@ export const TransporterDashboard: React.FC = () => {
                   required
                   className="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
                 />
+              </div>
+
+              {/* Fee Breakdown Inputs: Cleaning, Labour, Maintenance */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Mandatory Vehicle Surcharges (Hackathon Cost Transparency)
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Cleaning (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={cleaningCharge}
+                      onChange={(e) => setCleaningCharge(Number(e.target.value))}
+                      required
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Labour/Load (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={labourCharge}
+                      onChange={(e) => setLabourCharge(Number(e.target.value))}
+                      required
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Maintenance (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={maintenanceCharge}
+                      onChange={(e) => setMaintenanceCharge(Number(e.target.value))}
+                      required
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Vehicle Price Calculation Summary Card */}
+              <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-2">
+                <div className="font-bold text-amber-950 flex items-center justify-between">
+                  <span>Total Vehicle Freight Price:</span>
+                  <span className="text-base font-black text-amber-900">{formatINR(totalVehiclePrice)}</span>
+                </div>
+                <div className="space-y-1 text-slate-600 text-[11px] pt-2 border-t border-amber-200/60">
+                  <div className="flex justify-between">
+                    <span>Distance Base ({distanceKm} km × ₹{tariff}/km):</span>
+                    <span className="font-semibold text-slate-800">{formatINR(distanceKm * tariff)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Sanitation & Wash Fee:</span>
+                    <span className="font-semibold text-slate-800">{formatINR(cleaningCharge)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Labour & Handling Fee:</span>
+                    <span className="font-semibold text-slate-800">{formatINR(labourCharge)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Vehicle Maintenance Allowance:</span>
+                    <span className="font-semibold text-slate-800">{formatINR(maintenanceCharge)}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Backhaul Toggle */}

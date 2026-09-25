@@ -19,7 +19,11 @@ import {
   Star,
   Send,
   Sparkles,
-  KeyRound
+  KeyRound,
+  Boxes,
+  Warehouse,
+  MapPin,
+  AlertTriangle
 } from 'lucide-react';
 
 export const FarmerDashboard: React.FC = () => {
@@ -27,16 +31,26 @@ export const FarmerDashboard: React.FC = () => {
   const { batches, loading: batchesLoading } = useBatches();
   const { deals } = useDeals();
 
+  const [activeTab, setActiveTab] = useState<'batches' | 'inventory'>('batches');
   const [showModal, setShowModal] = useState(false);
   const [crop, setCrop] = useState('Tomato');
   const [variety, setVariety] = useState('Vaishali Red');
   const [quantity, setQuantity] = useState<number>(40);
+  const [minPricePerQtl, setMinPricePerQtl] = useState<number>(2100);
   const [harvestDate, setHarvestDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dateError, setDateError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Review states for completed deals
   const [reviewRatings, setReviewRatings] = useState<Record<string, { buyer: number; transporter: number }>>({});
   const [reviewSubmitted, setReviewSubmitted] = useState<Record<string, boolean>>({});
+
+  // 2-Day Relaxation limits
+  const now = new Date();
+  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+  const tomorrow = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
+  const minHarvestDate = twoDaysAgo.toISOString().split('T')[0];
+  const maxHarvestDate = tomorrow.toISOString().split('T')[0];
 
   // Filter farmer's own batches
   const myBatches = batches.filter(b => b.farmer_id === profile?.uid);
@@ -45,6 +59,20 @@ export const FarmerDashboard: React.FC = () => {
   const handleRegisterHarvest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
+
+    // Validate 2-day relaxation rule
+    const selectedDate = new Date(harvestDate);
+    const todayZero = new Date();
+    todayZero.setHours(0, 0, 0, 0);
+    const diffTime = todayZero.getTime() - selectedDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 2) {
+      setDateError('Freshness Rule: Harvest registration only permits up to 2 days relaxation (48 hours). Older produce cannot be certified for fresh transit.');
+      return;
+    }
+    setDateError('');
+
     try {
       setIsSubmitting(true);
       await registerHarvestBatch(
@@ -53,11 +81,14 @@ export const FarmerDashboard: React.FC = () => {
         crop,
         variety,
         Number(quantity),
-        harvestDate
+        Number(minPricePerQtl),
+        harvestDate,
+        profile.location
       );
       setShowModal(false);
       // Reset form
       setQuantity(40);
+      setMinPricePerQtl(2100);
     } catch (err) {
       console.error('Failed to register batch:', err);
     } finally {
@@ -265,17 +296,51 @@ export const FarmerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Batches Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Your Harvest Batches</h2>
-            <p className="text-xs text-slate-500">Click any batch to inspect open bids, available freight routes, and complete bookings.</p>
-          </div>
-          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
-            {myBatches.length} {myBatches.length === 1 ? 'Batch' : 'Batches'}
+      {/* Tab Navigation */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab('batches')}
+          className={`py-3 px-5 text-sm font-bold border-b-2 flex items-center space-x-2 transition-colors ${
+            activeTab === 'batches'
+              ? 'border-emerald-600 text-emerald-800'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Sprout className="w-4 h-4" />
+          <span>Active Market Batches & Handshakes</span>
+          <span className="text-[10px] ml-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            {myBatches.length}
           </span>
-        </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('inventory')}
+          className={`py-3 px-5 text-sm font-bold border-b-2 flex items-center space-x-2 transition-colors ${
+            activeTab === 'inventory'
+              ? 'border-emerald-600 text-emerald-800'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span>My Farm Inventory & Available Stock</span>
+          <span className="text-[10px] ml-1.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+            Live Stock
+          </span>
+        </button>
+      </div>
+
+      {/* VIEW 1: ACTIVE MARKET BATCHES */}
+      {activeTab === 'batches' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Your Harvest Batches</h2>
+              <p className="text-xs text-slate-500">Click any batch to inspect open bids, available freight routes, and complete bookings.</p>
+            </div>
+            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
+              {myBatches.length} {myBatches.length === 1 ? 'Batch' : 'Batches'}
+            </span>
+          </div>
 
         {batchesLoading ? (
           <div className="p-12 text-center text-slate-400 text-sm">Loading harvest inventory...</div>
@@ -368,6 +433,166 @@ export const FarmerDashboard: React.FC = () => {
           </div>
         )}
       </div>
+      )}
+
+      {/* VIEW 2: FARM WAREHOUSE INVENTORY & STOCK LEDGER */}
+      {activeTab === 'inventory' && (
+        <div className="space-y-6">
+          
+          {/* Farm Location & Silo Address Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                <Warehouse className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Farm Storage & Warehouse Coordinates</h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {profile?.location?.address || 'Navalgund Taluk, Hubballi Mandi Road, Karnataka'}
+                </p>
+                <div className="flex items-center space-x-3 mt-1 text-[11px] font-mono text-emerald-700">
+                  <span className="flex items-center">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    Lat: {profile?.location?.latitude ? Number(profile.location.latitude).toFixed(6) : '15.364700'}° N
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Lng: {profile?.location?.longitude ? Number(profile.location.longitude).toFixed(6) : '75.124000'}° E
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowModal(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center space-x-2 shrink-0 self-start md:self-center"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Harvest to Inventory</span>
+            </button>
+          </div>
+
+          {/* Stock Summary Statistics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+              <span className="text-slate-400 text-xs font-medium block">Total Farm Stock</span>
+              <div className="text-2xl font-black text-slate-900 mt-1">
+                {myBatches.reduce((acc, b) => acc + (b.quantity_qtl || 0), 0)} <span className="text-xs font-bold text-slate-500">qtl</span>
+              </div>
+              <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
+                {myBatches.length} Registered Lots
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+              <span className="text-slate-400 text-xs font-medium block">Estimated Asset Value</span>
+              <div className="text-2xl font-black text-emerald-800 mt-1">
+                {formatINR(myBatches.reduce((acc, b) => acc + ((b.quantity_qtl || 0) * (b.min_price_per_qtl || 2000)), 0))}
+              </div>
+              <span className="text-[11px] text-slate-400 block mt-1">
+                Calculated at Floor Reserve
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+              <span className="text-slate-400 text-xs font-medium block">Active on Wholesaler Board</span>
+              <div className="text-2xl font-black text-blue-700 mt-1">
+                {myBatches.filter(b => b.status === 'LISTED_ACTIVE').reduce((acc, b) => acc + (b.quantity_qtl || 0), 0)} <span className="text-xs font-bold text-slate-500">qtl</span>
+              </div>
+              <span className="text-[11px] text-blue-600 font-semibold mt-1 block">
+                Visible to all buyers
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+              <span className="text-slate-400 text-xs font-medium block">In Storage / Silo</span>
+              <div className="text-2xl font-black text-amber-700 mt-1">
+                {myBatches.filter(b => b.status === 'PENDING_SIMULATION' || b.status === 'DRAFT').reduce((acc, b) => acc + (b.quantity_qtl || 0), 0)} <span className="text-xs font-bold text-slate-500">qtl</span>
+              </div>
+              <span className="text-[11px] text-amber-600 font-semibold mt-1 block">
+                Ready to be published
+              </span>
+            </div>
+          </div>
+
+          {/* Stock Inventory Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Farm Stock Ledger</h3>
+                <p className="text-xs text-slate-500">All harvested produce currently stored on-farm and available for trade</p>
+              </div>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                {myBatches.length} Stock Lots
+              </span>
+            </div>
+
+            {myBatches.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                No crops in inventory. Click "Add Harvest to Inventory" above to record newly harvested produce.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
+                    <tr>
+                      <th className="py-3 px-6">Crop & Variety</th>
+                      <th className="py-3 px-4">Available Stock</th>
+                      <th className="py-3 px-4">Min Reservation Price</th>
+                      <th className="py-3 px-4">Est. Lot Value</th>
+                      <th className="py-3 px-4">Harvest Date</th>
+                      <th className="py-3 px-4">Market Status</th>
+                      <th className="py-3 px-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {myBatches.map(batch => (
+                      <tr key={batch.batch_id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="font-bold text-slate-900">{batch.crop}</div>
+                          <div className="text-[11px] text-slate-400">{batch.variety}</div>
+                        </td>
+                        <td className="py-4 px-4 font-bold text-slate-900">
+                          {batch.quantity_qtl} qtl
+                        </td>
+                        <td className="py-4 px-4 font-bold text-emerald-700">
+                          {formatINR(batch.min_price_per_qtl || 2000)} / qtl
+                        </td>
+                        <td className="py-4 px-4 font-bold text-slate-800">
+                          {formatINR((batch.quantity_qtl || 0) * (batch.min_price_per_qtl || 2000))}
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="font-medium text-slate-700">{batch.harvest_date}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          {getStatusBadge(batch.status)}
+                        </td>
+                        <td className="py-4 px-6 text-right space-x-2">
+                          {batch.status === 'PENDING_SIMULATION' && (
+                            <button
+                              onClick={() => handlePublish(batch.batch_id)}
+                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition-colors"
+                            >
+                              Publish to Board
+                            </button>
+                          )}
+                          <Link
+                            to={`/farmer/batch/${batch.batch_id}`}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-[11px] inline-block transition-colors"
+                          >
+                            Inspect Bids
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
 
       {/* Register Harvest Modal */}
       {showModal && (
@@ -386,6 +611,13 @@ export const FarmerDashboard: React.FC = () => {
                 ✕
               </button>
             </div>
+
+            {dateError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start space-x-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{dateError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleRegisterHarvest} className="space-y-4">
               
@@ -433,16 +665,55 @@ export const FarmerDashboard: React.FC = () => {
                 />
               </div>
 
-              {/* Harvest Date */}
+              {/* Minimum Reservation Price Per Quintal */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Harvest Date</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">Minimum Reservation Price (₹ / Quintal)</label>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Floor Price
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-400">₹</span>
+                  <input
+                    type="number"
+                    min="100"
+                    step="50"
+                    value={minPricePerQtl}
+                    onChange={(e) => setMinPricePerQtl(Number(e.target.value))}
+                    required
+                    placeholder="e.g. 2100"
+                    className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-300 text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-none"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Floor reservation: Wholesaler bids lower than this floor will be flagged/penalized.
+                </p>
+              </div>
+
+              {/* Harvest Date with 2-day relaxation rule */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">Harvest Date</label>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    2-Day Backdating Limit
+                  </span>
+                </div>
                 <input
                   type="date"
+                  min={minHarvestDate}
+                  max={maxHarvestDate}
                   value={harvestDate}
-                  onChange={(e) => setHarvestDate(e.target.value)}
+                  onChange={(e) => {
+                    setHarvestDate(e.target.value);
+                    setDateError('');
+                  }}
                   required
                   className="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                 />
+                <p className="text-[11px] text-slate-500">
+                  Relaxation rule: Harvest date can only be backdated up to 2 days (48 hours) to ensure produce shelf-life integrity.
+                </p>
               </div>
 
               <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100">
