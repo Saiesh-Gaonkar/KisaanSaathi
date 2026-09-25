@@ -9,11 +9,12 @@ import {
   User,
   AlertCircle,
   LogIn,
-  UserPlus
+  UserPlus,
+  Sparkles
 } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { loginWithGoogle, signUp, loginWithEmail } = useAuth();
+  const { loginWithGoogle, signUp, loginWithEmail, enterDemoMode } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
@@ -99,6 +100,11 @@ export const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoLogin = () => {
+    enterDemoMode('farmer');
+    navigate('/farmer');
   };
 
 
@@ -295,6 +301,30 @@ export const Login: React.FC = () => {
             </svg>
             <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
           </button>
+        </div>
+
+        {/* Demo Mode Access (Single Button) */}
+        <div className="pt-1 space-y-2">
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-slate-200"></div>
+            <span className="flex-shrink mx-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Or Explore In Demo Mode
+            </span>
+            <div className="flex-grow border-t border-slate-200"></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center space-x-2.5 py-2.5 px-4 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 hover:from-emerald-100 hover:to-green-100 text-emerald-900 font-bold text-xs shadow-sm transition-all hover:shadow group"
+          >
+            <Sparkles className="w-4 h-4 text-emerald-700 group-hover:rotate-12 transition-transform" />
+            <span>Enter Demo Mode (Instant 1-Click Access)</span>
+          </button>
+          <p className="text-[10px] text-center text-slate-400">
+            Instant exploration — switch between Farmer, Wholesaler & Transporter roles inside
+          </p>
         </div>
 
         {/* Footer info */}

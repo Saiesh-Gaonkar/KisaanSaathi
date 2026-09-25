@@ -18,6 +18,7 @@ import traceback
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.config import settings
@@ -30,6 +31,20 @@ app = FastAPI(
     title="KisaanSathi CrewAI Engine",
     description="Phase 2 — Multi-Agent Simulation Engine for optimal farmer sales channels",
     version="0.1.0",
+)
+
+# ── CORS — Allow the React web portal to call this API ──
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",    # Vite dev server
+        "http://localhost:3000",    # Alternative dev port
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

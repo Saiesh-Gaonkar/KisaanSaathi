@@ -244,6 +244,7 @@ export const logOut = async (): Promise<void> => {
   }
   localStorage.removeItem('kisaansaathi_demo_auth');
   localStorage.removeItem('kisaansaathi_demo_profile');
+  localStorage.removeItem('kisaansaathi_is_demo');
   window.dispatchEvent(new CustomEvent('kisaansaathi_auth_change'));
 };
 
@@ -252,10 +253,26 @@ export const logOut = async (): Promise<void> => {
  * ------------------------------------------------------------- */
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
+  // If demo user UID, load immediately from local storage without hitting Firestore rules
+  if (uid.startsWith('demo_')) {
+    const saved = localStorage.getItem('kisaansaathi_demo_profile');
+    if (saved) {
+      const p = JSON.parse(saved);
+      if (p.uid === uid) return p;
+    }
+    const users = getLocalCollection<UserProfile>('users');
+    const local = users.find(u => u.uid === uid);
+    if (local) return local;
+  }
+
   if (isLiveFirebaseConfigured && db) {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      return userDoc.data() as UserProfile;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        return userDoc.data() as UserProfile;
+      }
+    } catch (err) {
+      console.warn('Error reading user profile from Firestore:', err);
     }
     return null;
   } else {

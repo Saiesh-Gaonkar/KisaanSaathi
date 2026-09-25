@@ -235,6 +235,16 @@ export const SEED_ROUTES: TransporterRoute[] = [
 ];
 
 export const seedDatabase = async () => {
+  // Always populate local demo storage so demo exploration works instantly
+  localStorage.setItem('kisaansaathi_local_users', JSON.stringify(SEED_USERS));
+  localStorage.setItem('kisaansaathi_local_inventory_batches', JSON.stringify(SEED_BATCHES));
+  localStorage.setItem('kisaansaathi_local_buyer_bids', JSON.stringify(SEED_BIDS));
+  localStorage.setItem('kisaansaathi_local_transporter_routes', JSON.stringify(SEED_ROUTES));
+
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_inventory_batches'));
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_buyer_bids'));
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_transporter_routes'));
+
   if (isLiveFirebaseConfigured && db) {
     try {
       for (const u of SEED_USERS) {
@@ -252,21 +262,12 @@ export const seedDatabase = async () => {
       console.log('Live Firestore seeded successfully!');
       return true;
     } catch (e) {
-      console.error('Seeding live Firestore failed:', e);
-      return false;
+      console.warn('Seeding live Firestore skipped or restricted by security rules (local demo storage ready):', e);
+      return true;
     }
-  } else {
-    // Local demo storage seeding
-    localStorage.setItem('kisaansaathi_local_users', JSON.stringify(SEED_USERS));
-    localStorage.setItem('kisaansaathi_local_inventory_batches', JSON.stringify(SEED_BATCHES));
-    localStorage.setItem('kisaansaathi_local_buyer_bids', JSON.stringify(SEED_BIDS));
-    localStorage.setItem('kisaansaathi_local_transporter_routes', JSON.stringify(SEED_ROUTES));
-
-    window.dispatchEvent(new CustomEvent('kisaansaathi_update_inventory_batches'));
-    window.dispatchEvent(new CustomEvent('kisaansaathi_update_buyer_bids'));
-    window.dispatchEvent(new CustomEvent('kisaansaathi_update_transporter_routes'));
-    return true;
   }
+
+  return true;
 };
 
 /**
