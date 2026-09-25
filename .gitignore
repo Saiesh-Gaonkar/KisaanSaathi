@@ -1,0 +1,32 @@
+# Node & Web Portal
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+
+# Python & CrewAI / Bot
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Secrets & Credentials
+*.pem
+*.key
+serviceAccountKey*.json
+*credentials*.json
+firebase_config.json
+gcp_credentials.json
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

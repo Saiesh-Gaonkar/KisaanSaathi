@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      // Authenticated users can read public profiles
+      allow read: if isAuthenticated();
+      // Only the user themselves can write/update their profile
+      allow write: if isOwner(userId);
+    }
+
+    // Inventory Batches Collection
+    match /inventory_batches/{batchId} {
+      // Owner can read any of their own batches; other authenticated users can read LISTED_ACTIVE batches
+      allow read: if isAuthenticated() && (
+        resource.data.farmer_id == request.auth.uid ||
+        resource.data.status == "LISTED_ACTIVE" ||
+        resource.data.status == "MATCHED_IN_TRANSIT" ||
+        resource.data.status == "FULFILLED"
+      );
+      // Only the farmer can create/update their own batch
+      allow create: if isAuthenticated() && request.resource.data.farmer_id == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.farmer_id == request.auth.uid ||
+        // Allow status updates during deal booking
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ai_recommendations'])
+      );
+    }
+
+    // Buyer Bids Collection
+    match /buyer_bids/{bidId} {
+      // Bidding wholesaler and batch-owning farmer can read the bid
+      allow read: if isAuthenticated();
+      // Wholesalers can create bids
+      allow create: if isAuthenticated() && request.resource.data.buyer_id == request.auth.uid;
+      // Status updates allowed for accepted/rejected flow
+      allow update: if isAuthenticated();
+    }
+
+    // Transporter Routes Collection
+    match /transporter_routes/{routeId} {
+      // Everyone can read available routes; owner can read all their own
+      allow read: if isAuthenticated();
+      // Transporter can create their route
+      allow create: if isAuthenticated() && request.resource.data.transporter_id == request.auth.uid;
+      allow update: if isAuthenticated();
+    }
+
+    // Deals and Reviews Collection
+    match /deals_and_reviews/{dealId} {
+      // Only parties involved in the deal can read or update
+      allow read, write: if isAuthenticated() && (
+        request.auth.uid == resource.data.farmer_id ||
+        request.auth.uid == resource.data.buyer_id ||
+        request.auth.uid == resource.data.transporter_id ||
+        // Or if creating a new deal where request user is the farmer
+        request.auth.uid == request.resource.data.farmer_id
+      );
+    }
+  }
+}
