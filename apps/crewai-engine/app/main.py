@@ -224,7 +224,7 @@ async def _run_crew_pipeline(
         verbose=True,
     )
 
-    result = crew.kickoff()
+    result = await crew.kickoff_async()
     logger.info(f"Crew result: {result}")
 
     # Parse the strategist's output into the ai_recommendations array
