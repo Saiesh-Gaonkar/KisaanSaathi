@@ -73,7 +73,11 @@ def create_logistics_risk_task(
     Returns:
         A CrewAI Task that gathers logistics and risk data.
     """
-    farmer_address = farmer_location.get("address", "Unknown")
+    farmer_address = (
+        farmer_location.get("address")
+        or farmer_location.get("village_or_district")
+        or "Hubballi"
+    )
     farmer_lat = farmer_location.get("latitude", "")
     farmer_lng = farmer_location.get("longitude", "")
     farmer_coords = f"{farmer_lat},{farmer_lng}" if farmer_lat and farmer_lng else ""
