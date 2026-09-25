@@ -23,6 +23,7 @@ serviceAccountKey*.json
 *credentials*.json
 firebase_config.json
 gcp_credentials.json
+firebase-service-account.json
 *-firebase-adminsdk-*.json
 *firebase-adminsdk*.json
 kisaansaathi-28cec-firebase-adminsdk-*.json
