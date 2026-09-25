@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import type { UserRole } from '../../types';
-import { seedDatabase } from '../../seed/seedData';
+import { seedDatabase, cleanDatabase } from '../../seed/seedData';
 import { 
   Sprout, 
   Store, 
@@ -10,6 +10,7 @@ import {
   Star, 
   LogOut, 
   RefreshCw, 
+  Trash2,
   ShieldCheck,
   ChevronDown
 } from 'lucide-react';
@@ -19,6 +20,8 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanSuccess, setCleanSuccess] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleRoleSwitch = (role: UserRole) => {
@@ -34,6 +37,19 @@ export const Navbar: React.FC = () => {
     if (ok) {
       setSeedSuccess(true);
       setTimeout(() => setSeedSuccess(false), 3000);
+    }
+  };
+
+  const handleClean = async () => {
+    if (!window.confirm('Are you sure you want to clean all demo batches, bids, routes, and deals?')) {
+      return;
+    }
+    setCleaning(true);
+    const ok = await cleanDatabase();
+    setCleaning(false);
+    if (ok) {
+      setCleanSuccess(true);
+      setTimeout(() => setCleanSuccess(false), 3000);
     }
   };
 
@@ -137,12 +153,23 @@ export const Navbar: React.FC = () => {
             {/* Seed Demo Data Button */}
             <button
               onClick={handleSeed}
-              disabled={seeding}
+              disabled={seeding || cleaning}
               className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg border border-slate-200 transition-colors"
-              title="Reset or populate realistic seed data (batches, bids, routes)"
+              title="Populate realistic seed data (batches, bids, routes)"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${seeding ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{seedSuccess ? 'Seeded!' : 'Seed Data'}</span>
+            </button>
+
+            {/* Clean Data Button */}
+            <button
+              onClick={handleClean}
+              disabled={cleaning || seeding}
+              className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-slate-200 transition-colors"
+              title="Clean all demo batches, bids, and routes"
+            >
+              <Trash2 className={`w-3.5 h-3.5 mr-1.5 ${cleaning ? 'animate-spin text-red-600' : ''}`} />
+              <span className="hidden sm:inline">{cleanSuccess ? 'Cleaned!' : 'Clean Data'}</span>
             </button>
 
             {/* User Trust & Completed Deals Badge */}

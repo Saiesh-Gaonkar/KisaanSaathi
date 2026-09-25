@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/shared/Navbar';
@@ -9,7 +9,6 @@ import { FarmerDashboard } from './components/farmer/FarmerDashboard';
 import { BatchDetailView } from './components/farmer/BatchDetailView';
 import { WholesalerDashboard } from './components/wholesaler/WholesalerDashboard';
 import { TransporterDashboard } from './components/transporter/TransporterDashboard';
-import { checkAndAutoSeedLocal } from './seed/seedData';
 
 // Root router redirector
 const RootRedirect: React.FC = () => {
@@ -38,10 +37,6 @@ const RootRedirect: React.FC = () => {
 };
 
 export const AppContent: React.FC = () => {
-  useEffect(() => {
-    checkAndAutoSeedLocal();
-  }, []);
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <Navbar />

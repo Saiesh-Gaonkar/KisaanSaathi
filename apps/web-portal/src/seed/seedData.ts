@@ -1,4 +1,4 @@
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, deleteDoc, getDocs, collection } from 'firebase/firestore';
 import { db, isLiveFirebaseConfigured } from '../services/firebase';
 import type { 
   UserProfile, 
@@ -269,12 +269,40 @@ export const seedDatabase = async () => {
   }
 };
 
-// Auto-seed if local data is empty
-export const checkAndAutoSeedLocal = () => {
-  if (!isLiveFirebaseConfigured) {
-    const existing = localStorage.getItem('kisaansaathi_local_inventory_batches');
-    if (!existing || JSON.parse(existing).length === 0) {
-      seedDatabase();
+/**
+ * Wipe/clean all demo data from Firestore and local storage.
+ * Leaves the database completely pristine for live user tests.
+ */
+export const cleanDatabase = async (): Promise<boolean> => {
+  if (isLiveFirebaseConfigured && db) {
+    try {
+      const collectionsToClean = ['inventory_batches', 'buyer_bids', 'transporter_routes', 'deals_and_reviews'];
+      for (const collName of collectionsToClean) {
+        const snap = await getDocs(collection(db, collName));
+        for (const docSnap of snap.docs) {
+          await deleteDoc(docSnap.ref);
+        }
+      }
+      console.log('Live Firestore demo data cleaned successfully!');
+    } catch (e) {
+      console.error('Cleaning live Firestore failed:', e);
     }
   }
+
+  // Clear local storage demo collections
+  localStorage.setItem('kisaansaathi_local_inventory_batches', JSON.stringify([]));
+  localStorage.setItem('kisaansaathi_local_buyer_bids', JSON.stringify([]));
+  localStorage.setItem('kisaansaathi_local_transporter_routes', JSON.stringify([]));
+  localStorage.setItem('kisaansaathi_local_deals_and_reviews', JSON.stringify([]));
+
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_inventory_batches'));
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_buyer_bids'));
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_transporter_routes'));
+  window.dispatchEvent(new CustomEvent('kisaansaathi_update_deals_and_reviews'));
+  return true;
+};
+
+// Auto-seed disabled so the portal always starts fresh and clean
+export const checkAndAutoSeedLocal = () => {
+  // Deliberately no-op to keep database clean per user request
 };
