@@ -48,4 +48,4 @@ def verify_id_token(token: str) -> dict:
     Raises firebase_admin.auth.InvalidIdTokenError on failure.
     """
     _initialize()
-    return auth.verify_id_token(token)
+    return auth.verify_id_token(token, clock_skew_seconds=10)
